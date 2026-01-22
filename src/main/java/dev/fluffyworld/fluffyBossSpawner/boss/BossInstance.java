@@ -18,6 +18,7 @@ public class BossInstance {
     private final BossConfig config;
     private BukkitTask expireTask;
     private BukkitTask leashTask;
+    private BukkitTask deathCheckTask;
     
     private ActiveMob currentBoss;
     private ZonedDateTime nextSpawnTime;
@@ -89,6 +90,8 @@ public class BossInstance {
                     startLeashCheck();
                 }
                 
+                startDeathCheck();
+                
                 plugin.getLogger().info("Boss spawned: " + config.getMythicMobId() + " (" + config.getId() + ")");
             }
         } catch (Exception e) {
@@ -137,14 +140,36 @@ public class BossInstance {
         }, 20L, 20L);
     }
     
-    public void despawn() {
-        if (currentBoss != null && currentBoss.getEntity() != null) {
-            Entity entity = currentBoss.getEntity().getBukkitEntity();
-            if (entity != null && entity.isValid()) {
-                entity.remove();
-            }
-            currentBoss = null;
+    private void startDeathCheck() {
+        if (deathCheckTask != null) {
+            deathCheckTask.cancel();
         }
+        
+        deathCheckTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (currentBoss == null) {
+                stopDeathCheck();
+                return;
+            }
+            
+            Entity entity = currentBoss.getEntity().getBukkitEntity();
+            if (entity == null || !entity.isValid() || entity.isDead()) {
+                plugin.getLogger().info("Boss died: " + config.getMythicMobId() + " (" + config.getId() + ")");
+                cleanup();
+            }
+        }, 20L, 20L);
+    }
+    
+    private void stopDeathCheck() {
+        if (deathCheckTask != null) {
+            deathCheckTask.cancel();
+            deathCheckTask = null;
+        }
+    }
+    
+    private void cleanup() {
+        currentBoss = null;
+        spawnOrigin = null;
+        expireTime = null;
         
         if (expireTask != null) {
             expireTask.cancel();
@@ -156,8 +181,18 @@ public class BossInstance {
             leashTask = null;
         }
         
-        expireTime = null;
-        spawnOrigin = null;
+        stopDeathCheck();
+    }
+    
+    public void despawn() {
+        if (currentBoss != null && currentBoss.getEntity() != null) {
+            Entity entity = currentBoss.getEntity().getBukkitEntity();
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+        
+        cleanup();
     }
     
     public void stop() {
@@ -170,6 +205,8 @@ public class BossInstance {
             leashTask.cancel();
             leashTask = null;
         }
+        
+        stopDeathCheck();
     }
     
     public boolean isAlive() {
