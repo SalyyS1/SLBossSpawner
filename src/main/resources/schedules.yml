@@ -1,0 +1,35 @@
+boss:
+  mythicmob: SkeletonKing
+  expire: 3600
+  clearOnExpire: true
+  time-settings:
+    zone: Asia/Bangkok
+    time:
+      - "12:00"
+      - "18:00"
+      - "21:00"
+  location:
+    x: 100
+    y: 64
+    z: -200
+    world: bossworld
+    leashRadius: 10
+  loadChunks: true
+
+boss2:
+  mythicmob: SkeletonKing2
+  expire: 3600
+  clearOnExpire: true
+  time-settings:
+    zone: Asia/Bangkok
+    time:
+      - "12:30"
+      - "18:30"
+      - "21:30"
+  location:
+    x: 100
+    y: 64
+    z: -200
+    world: bossworld
+    leashRadius: 20
+  loadChunks: true

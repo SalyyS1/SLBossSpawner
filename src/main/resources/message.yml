@@ -1,0 +1,32 @@
+# FluffyBossSpawner Messages
+# Supports hex colors: &#RRGGBB
+# Variables: {current_boss}, {next_time}, {next_formatted}, {expire_time}
+
+no-permission: "&#FF6B6B&lคุณไม่มีสิทธิ์ใช้คำสั่งนี้!"
+reload-success: "&#6BCB77&lโหลดคอนฟิกใหม่สำเร็จ!"
+boss-spawned-all: "&#FFD93D&lเรียกบอสทุกตัวแล้ว!"
+boss-spawned-single: "&#FFD93D&lเรียกบอส {boss_id} แล้ว!"
+boss-despawned-all: "&#4D96FF&lลบบอสทุกตัวแล้ว!"
+boss-despawned-single: "&#4D96FF&lลบบอส {boss_id} แล้ว!"
+
+help-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lFluffyBossSpawner &#FF6B6B&l━━━━━━"
+help-reload: "  &#FFD93D/fboss reload &#FFFFFF- โหลดคอนฟิกใหม่"
+help-spawn: "  &#FFD93D/fboss spawn [id] &#FFFFFF- เรียกบอส"
+help-despawn: "  &#FFD93D/fboss despawn [id] &#FFFFFF- ลบบอส"
+help-info: "  &#FFD93D/fboss info &#FFFFFF- ข้อมูลบอส"
+help-list: "  &#FFD93D/fboss list &#FFFFFF- รายชื่อบอส"
+help-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+info-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lข้อมูลบอส &#FF6B6B&l━━━━━━"
+info-boss-header: "  &#FFD93D● {boss_id}"
+info-current: "    &#6BCB77บอส: &#FFFFFF{current_boss}"
+info-next: "    &#4D96FFถัดไป: &#FFFFFF{next_formatted} &#8B8B8B({next_time})"
+info-expire: "    &#FF6B6Bหมดเวลา: &#FFFFFF{expire_time}"
+info-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+list-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lรายชื่อบอส &#FF6B6B&l━━━━━━"
+list-entry: "  &#FFD93D● {boss_id} &#8B8B8B- &#FFFFFF{mythicmob} {status}"
+list-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+status-alive: "&#6BCB77Alive"
+status-dead: "&#FF6B6BDead"
