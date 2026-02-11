@@ -1,9 +1,12 @@
+# SLBossSpawner Cấu Hình Lịch Trình
+# Phần thưởng được cấu hình trong reward.yml
+
 boss:
   mythicmob: SkeletonKing
   expire: 3600
   clearOnExpire: true
   time-settings:
-    zone: Asia/Bangkok
+    zone: Asia/Ho_Chi_Minh
     time:
       - "12:00"
       - "18:00"
@@ -15,13 +18,22 @@ boss:
     world: bossworld
     leashRadius: 10
   loadChunks: true
+  broadcast:
+    death:
+      chat: true
+      title: true
+    spawn-warning:
+      chat: true
+      title: true
+      bossbar: true
+      intervals: [30, 15, 5, 1]
 
 boss2:
   mythicmob: SkeletonKing2
   expire: 3600
   clearOnExpire: true
   time-settings:
-    zone: Asia/Bangkok
+    zone: Asia/Ho_Chi_Minh
     time:
       - "12:30"
       - "18:30"
@@ -33,3 +45,12 @@ boss2:
     world: bossworld
     leashRadius: 20
   loadChunks: true
+  broadcast:
+    death:
+      chat: true
+      title: true
+    spawn-warning:
+      chat: true
+      title: true
+      bossbar: true
+      intervals: [30, 15, 5, 1]

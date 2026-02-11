@@ -1,32 +1,71 @@
-# FluffyBossSpawner Messages
+# SLBossSpawner Messages (English)
 # Supports hex colors: &#RRGGBB
 # Variables: {current_boss}, {next_time}, {next_formatted}, {expire_time}
 
-no-permission: "&#FF6B6B&lคุณไม่มีสิทธิ์ใช้คำสั่งนี้!"
-reload-success: "&#6BCB77&lโหลดคอนฟิกใหม่สำเร็จ!"
-boss-spawned-all: "&#FFD93D&lเรียกบอสทุกตัวแล้ว!"
-boss-spawned-single: "&#FFD93D&lเรียกบอส {boss_id} แล้ว!"
-boss-despawned-all: "&#4D96FF&lลบบอสทุกตัวแล้ว!"
-boss-despawned-single: "&#4D96FF&lลบบอส {boss_id} แล้ว!"
+no-permission: "&#FF6B6B&lYou don't have permission to use this command!"
+reload-success: "&#6BCB77&lConfiguration reloaded successfully!"
+boss-spawned-all: "&#FFD93D&lAll bosses have been spawned!"
+boss-spawned-single: "&#FFD93D&lBoss {boss_id} has been spawned!"
+boss-despawned-all: "&#4D96FF&lAll bosses have been despawned!"
+boss-despawned-single: "&#4D96FF&lBoss {boss_id} has been despawned!"
 
-help-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lFluffyBossSpawner &#FF6B6B&l━━━━━━"
-help-reload: "  &#FFD93D/fboss reload &#FFFFFF- โหลดคอนฟิกใหม่"
-help-spawn: "  &#FFD93D/fboss spawn [id] &#FFFFFF- เรียกบอส"
-help-despawn: "  &#FFD93D/fboss despawn [id] &#FFFFFF- ลบบอส"
-help-info: "  &#FFD93D/fboss info &#FFFFFF- ข้อมูลบอส"
-help-list: "  &#FFD93D/fboss list &#FFFFFF- รายชื่อบอส"
-help-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+help-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lSLBossSpawner &#8B8B8Bv{version} &#FF6B6B&l━━━━━━"
+help-usage: "  &#8B8B8BUsage: &#FFFFFF/slboss &#FFD93D<command> &#8B8B8B[args]"
+help-reload: "  &#FFD93D/slboss reload &#8B8B8B- &#FFFFFFReload config"
+help-spawn: "  &#FFD93D/slboss spawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFSpawn boss (all if no id)"
+help-despawn: "  &#FFD93D/slboss despawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFDespawn boss (all if no id)"
+help-info: "  &#FFD93D/slboss info &#8B8B8B- &#FFFFFFDetailed boss status & timers"
+help-list: "  &#FFD93D/slboss list &#8B8B8B- &#FFFFFFQuick boss overview"
+help-help: "  &#FFD93D/slboss help &#8B8B8B- &#FFFFFFShow this help menu"
+help-footer: "  &#8B8B8BAliases: /slbs | Permissions: slboss.*\n&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-info-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lข้อมูลบอส &#FF6B6B&l━━━━━━"
+info-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lBoss Info &#FF6B6B&l━━━━━━"
 info-boss-header: "  &#FFD93D● {boss_id}"
-info-current: "    &#6BCB77บอส: &#FFFFFF{current_boss}"
-info-next: "    &#4D96FFถัดไป: &#FFFFFF{next_formatted} &#8B8B8B({next_time})"
-info-expire: "    &#FF6B6Bหมดเวลา: &#FFFFFF{expire_time}"
+info-current: "    &#6BCB77Boss: &#FFFFFF{current_boss}"
+info-next: "    &#4D96FFNext: &#FFFFFF{next_formatted} &#8B8B8B({next_time})"
+info-expire: "    &#FF6B6BExpires: &#FFFFFF{expire_time}"
 info-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-list-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lรายชื่อบอส &#FF6B6B&l━━━━━━"
+list-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lBoss List &#FF6B6B&l━━━━━━"
 list-entry: "  &#FFD93D● {boss_id} &#8B8B8B- &#FFFFFF{mythicmob} {status}"
 list-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 status-alive: "&#6BCB77Alive"
 status-dead: "&#FF6B6BDead"
+
+# Death broadcast
+boss-death-chat: "&#FF6B6B&l{boss_name} &#FFFFFFwas killed by &#FFD93D{killer_name}&#FFFFFF!"
+boss-death-title: "&#FF6B6B{boss_name}"
+boss-death-subtitle: "&#FFFFFFDefeated by &#FFD93D{killer_name}"
+boss-death-no-killer: "&#FF6B6B&l{boss_name} &#FFFFFFhas been destroyed!"
+boss-death-no-killer-subtitle: "&#FFFFFFhas been destroyed"
+
+# Spawn warning
+spawn-warning-chat: "&#FFD93D&l{boss_name} &#FFFFFFwill spawn in &#FF6B6B{time_remaining}&#FFFFFF!"
+spawn-warning-title: "&#FFD93D&lPrepare!"
+spawn-warning-subtitle: "&#FFFFFF{boss_name} spawns in &#FF6B6B{time_remaining}"
+spawn-warning-bossbar: "&#FF6B6B{boss_name} &#FFFFFFis about to spawn..."
+
+# Damage ranking
+ranking-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lDamage Ranking &#FF6B6B&l━━━━━━"
+ranking-entry: "  &#FFD93D#{rank} &#FFFFFF{player_name} &#8B8B8B- &#FF6B6B{damage} &#8B8B8B({percent}%)"
+ranking-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Tank ranking
+tank-ranking-header: "&#FF6B6B&l━━━━━━ &#4D96FF&lTank Ranking &#FF6B6B&l━━━━━━"
+tank-ranking-entry: "  &#4D96FF#{rank} &#FFFFFF{player_name} &#8B8B8B- &#4D96FF{damage_taken} &#8B8B8B({percent}%)"
+tank-ranking-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Support ranking
+support-ranking-header: "&#FF6B6B&l━━━━━━ &#6BCB77&lSupport Ranking &#FF6B6B&l━━━━━━"
+support-ranking-entry: "  &#6BCB77#{rank} &#FFFFFF{player_name} &#8B8B8B- &#6BCB77{score} &#8B8B8B({percent}%)"
+support-ranking-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Item protection
+pickup-denied: "&#FF6B6B&lCannot pick up! This item belongs to another player"
+
+# Pending rewards
+pending-rewards-delivered: "&#6BCB77&lYou received {count} pending reward(s)!"
+
+# Time units
+time-unit-minutes: " min"

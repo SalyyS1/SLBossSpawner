@@ -1,0 +1,118 @@
+# SLBossSpawner Cấu Hình Phần Thưởng
+# Cấu hình phần thưởng cho từng boss.
+# Boss ID phải trùng với schedules.yml.
+# Hỗ trợ 3 hạng mục: damage (sát thương), tank (chịu đòn), support (hỗ trợ)
+
+boss:
+  enabled: true
+  item-protection:
+    enabled: true
+    duration: 60
+    expire-action: public  # "public" = ai cũng nhặt được, "despawn" = xóa vật phẩm
+  last-hit-bonus:
+    multiplier: 1.5
+  global-multiplier: 1.0
+  multiply-drop-tables: false
+
+  # Hạng mục sát thương - Top người gây sát thương cho boss
+  damage:
+    enabled: true
+    tiers:
+      1:
+        multiplier: 3.0
+        commands:
+          - "eco give {player} 5000"
+        drop-tables:
+          - "BossLootTable"
+        items:
+          - type: vanilla
+            material: DIAMOND
+            amount: 5
+            display-name: "&#FFD93D&lPhần Thưởng Sát Thương Hạng 1"
+      2:
+        multiplier: 2.0
+        commands:
+          - "eco give {player} 3000"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: GOLD_INGOT
+            amount: 10
+            display-name: "&#C0C0C0&lPhần Thưởng Sát Thương Hạng 2"
+      3:
+        multiplier: 1.5
+        commands:
+          - "eco give {player} 1000"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: IRON_INGOT
+            amount: 15
+            display-name: "&#CD7F32&lPhần Thưởng Sát Thương Hạng 3"
+
+  # Hạng mục chịu đòn - Top người nhận sát thương từ boss
+  tank:
+    enabled: true
+    tiers:
+      1:
+        multiplier: 1.0
+        commands:
+          - "eco give {player} 3000"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: NETHERITE_SCRAP
+            amount: 2
+            display-name: "&#4D96FF&lPhần Thưởng Chịu Đòn Hạng 1"
+      2:
+        multiplier: 1.0
+        commands:
+          - "eco give {player} 1500"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: GOLDEN_APPLE
+            amount: 3
+            display-name: "&#4D96FF&lPhần Thưởng Chịu Đòn Hạng 2"
+
+  # Hạng mục hỗ trợ - Top người gây hiệu ứng hại cho boss
+  support:
+    enabled: true
+    tiers:
+      1:
+        multiplier: 1.0
+        commands:
+          - "eco give {player} 2000"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: EMERALD
+            amount: 5
+            display-name: "&#6BCB77&lPhần Thưởng Hỗ Trợ Hạng 1"
+      2:
+        multiplier: 1.0
+        commands:
+          - "eco give {player} 1000"
+        drop-tables: []
+        items:
+          - type: vanilla
+            material: LAPIS_LAZULI
+            amount: 10
+            display-name: "&#6BCB77&lPhần Thưởng Hỗ Trợ Hạng 2"
+
+# Ví dụ sử dụng các loại vật phẩm:
+#   - type: vanilla          # Vật phẩm Minecraft gốc
+#     material: DIAMOND
+#     amount: 5
+#     display-name: "&#FFD93D&lTên Hiển Thị"
+#
+#   - type: mmoitems          # Vật phẩm từ plugin MMOItems
+#     material: SWORD          # Loại MMOItems
+#     id: "CUSTOM_SWORD"       # ID vật phẩm MMOItems
+#     amount: 1
+#
+#   - type: mythicmobs         # Vật phẩm từ plugin MythicMobs
+#     material: "CustomItem"   # Tên nội bộ MythicMobs
+#     amount: 1
+
+# Boss không có phần thưởng: bỏ qua section hoặc đặt enabled: false

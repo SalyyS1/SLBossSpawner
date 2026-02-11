@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLBossSpawner Wiki</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17; --surface: #111827; --surface2: #1a2236; --surface3: #1f293d;
+    --border: #1e2d4a; --border-hover: #2d4470;
+    --text: #c5cee0; --text-muted: #6b7a99; --heading: #f0f4ff;
+    --accent: #ff6b6b; --accent-soft: rgba(255,107,107,0.12);
+    --gold: #ffd93d; --gold-soft: rgba(255,217,61,0.10);
+    --green: #6bcb77; --green-soft: rgba(107,203,119,0.10);
+    --blue: #4d96ff; --blue-soft: rgba(77,150,255,0.10);
+    --purple: #a78bfa; --purple-soft: rgba(167,139,250,0.10);
+    --orange: #ff8e53; --orange-soft: rgba(255,142,83,0.10);
+    --link: #58a6ff; --code-bg: #0d1425;
+    --gradient-accent: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    --gradient-gold: linear-gradient(135deg, #ffd93d, #ffb347);
+    --gradient-green: linear-gradient(135deg, #6bcb77, #4db8a0);
+    --gradient-blue: linear-gradient(135deg, #4d96ff, #6b7aff);
+    --sidebar-w: 280px; --radius: 12px; --radius-sm: 8px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+
+  /* --- Language Toggle --- */
+  .lang-toggle {
+    position:fixed; top:16px; right:20px; z-index:100;
+    display:flex; gap:0; border-radius:10px; overflow:hidden;
+    border:1px solid var(--border); backdrop-filter:blur(12px);
+    background:rgba(17,24,39,0.9); box-shadow:0 4px 24px rgba(0,0,0,0.5);
+  }
+  .lang-btn {
+    padding:8px 18px; cursor:pointer; font-size:13px; font-weight:600;
+    border:none; background:transparent; color:var(--text-muted);
+    transition:all .25s; font-family:inherit; letter-spacing:.3px;
+  }
+  .lang-btn.active { background:var(--gradient-accent); color:#fff; }
+  .lang-btn:hover:not(.active) { color:var(--heading); background:rgba(255,255,255,0.05); }
+
+  [lang-vi] { display:none; }
+  body.vi [lang-en] { display:none; }
+  body.vi [lang-vi] { display:revert; }
+
+  /* --- Layout --- */
+  .layout { display:flex; min-height:100vh; }
+
+  /* --- Sidebar --- */
+  .sidebar {
+    width:var(--sidebar-w); background:var(--surface); border-right:1px solid var(--border);
+    position:fixed; top:0; left:0; bottom:0; overflow-y:auto;
+    display:flex; flex-direction:column;
+  }
+  .sidebar-header {
+    padding:28px 24px 20px; border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(255,107,107,0.06) 0%, transparent 100%);
+  }
+  .sidebar-logo { font-size:20px; font-weight:800; letter-spacing:-.3px; }
+  .sidebar-logo .sl { background:var(--gradient-accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .sidebar-logo .bs { color:var(--gold); }
+  .sidebar-ver { font-size:11px; color:var(--text-muted); margin-top:4px; font-weight:500; }
+
+  .sidebar nav { flex:1; padding:12px 0; }
+  .nav-group {
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px;
+    color:var(--text-muted); padding:20px 24px 8px; opacity:.7;
+  }
+  .sidebar nav a {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 24px; color:var(--text-muted); text-decoration:none;
+    font-size:13.5px; font-weight:500; transition:all .2s;
+    border-left:3px solid transparent; margin:1px 0;
+  }
+  .sidebar nav a:hover { color:var(--heading); background:rgba(255,255,255,0.03); border-left-color:var(--border-hover); }
+  .sidebar nav a.active { color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); }
+
+  /* Nav indicator dot */
+  .nav-dot {
+    width:6px; height:6px; border-radius:50%; flex-shrink:0;
+  }
+  .nav-dot.red { background:var(--accent); }
+  .nav-dot.gold { background:var(--gold); }
+  .nav-dot.green { background:var(--green); }
+  .nav-dot.blue { background:var(--blue); }
+  .nav-dot.purple { background:var(--purple); }
+
+  /* --- Main --- */
+  main {
+    margin-left:var(--sidebar-w); flex:1; max-width:840px;
+    padding:48px 56px 120px;
+  }
+
+  /* --- Hero --- */
+  .hero {
+    text-align:center; padding:48px 32px 40px;
+    background:linear-gradient(180deg, rgba(255,107,107,0.06) 0%, transparent 60%);
+    border:1px solid var(--border); border-radius:var(--radius);
+    margin-bottom:48px;
+  }
+  .hero h1 { font-size:36px; font-weight:800; color:var(--heading); letter-spacing:-.5px; margin-bottom:12px; }
+  .hero h1 .sl { background:var(--gradient-accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero h1 .bs { color:var(--gold); }
+  .hero .tagline { font-size:16px; color:var(--text-muted); max-width:500px; margin:0 auto 24px; line-height:1.6; }
+  .hero-badges { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1px solid var(--border);
+  }
+  .badge-red { background:var(--accent-soft); color:var(--accent); }
+  .badge-gold { background:var(--gold-soft); color:var(--gold); }
+  .badge-green { background:var(--green-soft); color:var(--green); }
+  .badge-blue { background:var(--blue-soft); color:var(--blue); }
+  .badge-purple { background:var(--purple-soft); color:var(--purple); }
+
+  /* --- Feature Grid --- */
+  .feature-grid {
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+    gap:16px; margin:24px 0 32px;
+  }
+  .feature-card {
+    padding:20px; border-radius:var(--radius-sm); border:1px solid var(--border);
+    background:var(--surface); transition:all .2s;
+    border-top:3px solid var(--border);
+  }
+  .feature-card:hover { border-color:var(--border-hover); transform:translateY(-2px); }
+  .feature-card.fc-accent { border-top-color:var(--accent); }
+  .feature-card.fc-blue { border-top-color:var(--blue); }
+  .feature-card.fc-gold { border-top-color:var(--gold); }
+  .feature-card.fc-green { border-top-color:var(--green); }
+  .feature-card.fc-purple { border-top-color:var(--purple); }
+  .feature-card.fc-orange { border-top-color:var(--orange); }
+  .feature-card h4 { font-size:14px; font-weight:700; color:var(--heading); margin-bottom:6px; }
+  .feature-card p { font-size:12.5px; color:var(--text-muted); line-height:1.5; }
+
+  /* --- Headings --- */
+  h2 {
+    font-size:22px; font-weight:800; color:var(--heading); letter-spacing:-.3px;
+    margin:56px 0 20px; padding-bottom:12px;
+    border-bottom:1px solid var(--border);
+  }
+  h3 { font-size:16px; font-weight:700; color:var(--heading); margin:28px 0 12px; }
+  h4 { font-size:14px; font-weight:600; color:var(--heading); margin:20px 0 8px; }
+
+  /* --- Text --- */
+  p { margin-bottom:12px; }
+  strong { color:var(--heading); font-weight:600; }
+  a { color:var(--link); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  code {
+    font-family:'JetBrains Mono',monospace; font-size:13px;
+    background:var(--code-bg); color:var(--gold); padding:2px 7px;
+    border-radius:5px; border:1px solid var(--border);
+  }
+  hr { border:none; border-top:1px solid var(--border); margin:40px 0; }
+
+  /* --- Code Block --- */
+  pre {
+    background:var(--code-bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:20px 24px; overflow-x:auto; margin:16px 0 20px;
+    font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    line-height:1.65; color:var(--text);
+  }
+  pre .comment { color:#5c6b8a; }
+  pre .key { color:var(--blue); }
+  pre .val { color:var(--green); }
+  pre .str { color:var(--gold); }
+  pre .num { color:var(--orange); }
+
+  /* --- Tables --- */
+  table {
+    width:100%; border-collapse:collapse; margin:16px 0 20px;
+    font-size:13.5px;
+  }
+  th {
+    text-align:left; padding:10px 16px; font-weight:600; color:var(--heading);
+    background:var(--surface2); border-bottom:2px solid var(--border);
+    font-size:12px; text-transform:uppercase; letter-spacing:.5px;
+  }
+  td {
+    padding:10px 16px; border-bottom:1px solid var(--border);
+  }
+  tr:hover td { background:rgba(255,255,255,0.015); }
+
+  /* --- Callout Boxes --- */
+  .callout {
+    padding:16px 20px; border-radius:var(--radius-sm); margin:16px 0;
+    border-left:3px solid; font-size:13.5px;
+  }
+  .callout-info { border-color:var(--blue); background:var(--blue-soft); }
+  .callout-warn { border-color:var(--gold); background:var(--gold-soft); }
+  .callout-tip { border-color:var(--green); background:var(--green-soft); }
+  .callout-danger { border-color:var(--accent); background:var(--accent-soft); }
+  .callout strong { display:block; margin-bottom:4px; font-size:13px; }
+
+  /* --- Lists --- */
+  ol, ul { margin:8px 0 16px 24px; }
+  li { margin:4px 0; }
+  li code { font-size:12px; }
+
+  /* --- Collapsible / Details --- */
+  details {
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    margin:12px 0; background:var(--surface);
+  }
+  details[open] { background:var(--surface2); }
+  summary {
+    padding:12px 18px; cursor:pointer; font-weight:600; font-size:14px;
+    color:var(--heading); list-style:none; display:flex; align-items:center; gap:10px;
+  }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"\25B8"; color:var(--accent); font-size:12px; transition:transform .2s; }
+  details[open] summary::before { transform:rotate(90deg); }
+  details .detail-body { padding:4px 18px 16px; }
+
+  /* --- Tracking Category Cards --- */
+  .category-cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin:20px 0; }
+  .cat-card {
+    padding:20px; border-radius:var(--radius-sm); border:1px solid var(--border);
+    text-align:center;
+  }
+  .cat-card.damage { background:var(--accent-soft); border-color:rgba(255,107,107,0.3); }
+  .cat-card.tank { background:var(--blue-soft); border-color:rgba(77,150,255,0.3); }
+  .cat-card.support { background:var(--green-soft); border-color:rgba(107,203,119,0.3); }
+  .cat-label {
+    font-size:11px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:10px; opacity:.7;
+  }
+  .cat-card.damage .cat-label { color:var(--accent); }
+  .cat-card.tank .cat-label { color:var(--blue); }
+  .cat-card.support .cat-label { color:var(--green); }
+  .cat-card h4 { margin:0 0 6px; font-size:15px; }
+  .cat-card.damage h4 { color:var(--accent); }
+  .cat-card.tank h4 { color:var(--blue); }
+  .cat-card.support h4 { color:var(--green); }
+  .cat-card p { font-size:12px; color:var(--text-muted); margin:0; line-height:1.4; }
+
+  /* --- Checklist --- */
+  .checklist { list-style:none; margin:16px 0; padding:0; }
+  .checklist li {
+    padding:8px 0; border-bottom:1px solid rgba(30,45,74,0.5);
+    display:flex; align-items:flex-start; gap:10px; font-size:13.5px;
+  }
+  .checklist li:last-child { border-bottom:none; }
+  .checklist .check { color:var(--green); font-size:14px; flex-shrink:0; margin-top:2px; font-weight:700; }
+
+  /* --- Footer --- */
+  .footer {
+    margin-top:64px; padding:24px 0; border-top:1px solid var(--border);
+    text-align:center; color:var(--text-muted); font-size:13px;
+  }
+  .footer strong { color:var(--gold); }
+
+  /* --- Responsive --- */
+  @media (max-width: 900px) {
+    .sidebar { display:none; }
+    main { margin-left:0; padding:32px 24px 80px; }
+    .category-cards { grid-template-columns:1fr; }
+    .feature-grid { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width: 500px) {
+    .feature-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Language Toggle -->
+<div class="lang-toggle">
+  <button class="lang-btn active" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" onclick="setLang('vi')">VI</button>
+</div>
+
+<div class="layout">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo"><span class="sl">SL</span><span class="bs">BossSpawner</span></div>
+    <div class="sidebar-ver">v2.0.0 &mdash; MythicMobs Integration</div>
+  </div>
+  <nav>
+    <div class="nav-group" lang-en>Getting Started</div>
+    <div class="nav-group" lang-vi>Bắt đầu</div>
+    <a href="#overview"><span class="nav-dot red"></span> <span lang-en>Overview</span><span lang-vi>Tổng quan</span></a>
+    <a href="#installation"><span class="nav-dot red"></span> <span lang-en>Installation</span><span lang-vi>Cài đặt</span></a>
+
+    <div class="nav-group" lang-en>Configuration</div>
+    <div class="nav-group" lang-vi>Cấu hình</div>
+    <a href="#config"><span class="nav-dot gold"></span> <span lang-en>config.yml</span><span lang-vi>config.yml</span></a>
+    <a href="#schedules"><span class="nav-dot gold"></span> <span lang-en>schedules.yml</span><span lang-vi>schedules.yml</span></a>
+    <a href="#rewards-config"><span class="nav-dot gold"></span> <span lang-en>reward.yml</span><span lang-vi>reward.yml</span></a>
+
+    <div class="nav-group" lang-en>Features</div>
+    <div class="nav-group" lang-vi>Tính năng</div>
+    <a href="#tracking"><span class="nav-dot green"></span> <span lang-en>Player Tracking</span><span lang-vi>Theo dõi người chơi</span></a>
+    <a href="#rewards"><span class="nav-dot green"></span> <span lang-en>Reward System</span><span lang-vi>Hệ thống thưởng</span></a>
+    <a href="#broadcast"><span class="nav-dot green"></span> <span lang-en>Broadcasts</span><span lang-vi>Thông báo</span></a>
+    <a href="#item-protection"><span class="nav-dot green"></span> <span lang-en>Item Protection</span><span lang-vi>Bảo vệ vật phẩm</span></a>
+    <a href="#persistence"><span class="nav-dot green"></span> <span lang-en>Persistence</span><span lang-vi>Lưu trữ</span></a>
+
+    <div class="nav-group" lang-en>Reference</div>
+    <div class="nav-group" lang-vi>Tra cứu</div>
+    <a href="#commands"><span class="nav-dot blue"></span> <span lang-en>Commands</span><span lang-vi>Lệnh</span></a>
+    <a href="#placeholders"><span class="nav-dot blue"></span> <span lang-en>Placeholders</span><span lang-vi>Placeholders</span></a>
+    <a href="#permissions"><span class="nav-dot blue"></span> <span lang-en>Permissions</span><span lang-vi>Quyền</span></a>
+  </nav>
+</aside>
+
+<!-- Main Content -->
+<main>
+
+<!-- HERO -->
+<div class="hero">
+  <h1><span class="sl">SL</span><span class="bs">BossSpawner</span></h1>
+  <p class="tagline" lang-en>A powerful scheduled boss spawner with MythicMobs integration, player performance tracking, and a tiered reward system.</p>
+  <p class="tagline" lang-vi>Plugin triệu hồi Boss theo lịch, tích hợp MythicMobs, theo dõi đóng góp người chơi và chia thưởng theo bảng xếp hạng.</p>
+  <div class="hero-badges">
+    <span class="badge badge-red">Paper/Spigot 1.21+</span>
+    <span class="badge badge-gold">MythicMobs 5.x</span>
+    <span class="badge badge-green">Java 21</span>
+    <span class="badge badge-blue">PlaceholderAPI</span>
+    <span class="badge badge-purple">MMOItems</span>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<h2 id="overview"><span lang-en>Overview</span><span lang-vi>Tổng quan</span></h2>
+
+<div class="feature-grid">
+  <div class="feature-card fc-accent">
+    <h4 lang-en>Scheduled Spawning</h4><h4 lang-vi>Triệu hồi theo giờ</h4>
+    <p lang-en>Spawn bosses at exact times with timezone support. Auto-expire after configurable duration.</p>
+    <p lang-vi>Boss xuất hiện đúng giờ đã hẹn, hỗ trợ múi giờ Việt Nam. Hết thời gian sẽ tự biến mất.</p>
+  </div>
+  <div class="feature-card fc-blue">
+    <h4 lang-en>3-Category Tracking</h4><h4 lang-vi>Theo dõi 3 hạng mục</h4>
+    <p lang-en>Tracks Damage dealt, Damage tanked, and Support effects applied to bosses.</p>
+    <p lang-vi>Ghi nhận sát thương gây ra, sát thương chịu đựng, và hiệu ứng hỗ trợ lên Boss.</p>
+  </div>
+  <div class="feature-card fc-gold">
+    <h4 lang-en>Tiered Rewards</h4><h4 lang-vi>Thưởng theo hạng</h4>
+    <p lang-en>Rank-based rewards with multipliers, commands, items, and drop tables per category.</p>
+    <p lang-vi>Thưởng theo thứ hạng, có hệ số nhân, chạy lệnh, trao vật phẩm và bảng loot riêng.</p>
+  </div>
+  <div class="feature-card fc-green">
+    <h4 lang-en>Smart Broadcasts</h4><h4 lang-vi>Thông báo tự động</h4>
+    <p lang-en>Countdown warnings via chat, title, and bossbar. Death announcements with killer info.</p>
+    <p lang-vi>Đếm ngược qua chat, title và bossbar trước khi Boss xuất hiện. Thông báo khi Boss bị hạ kèm tên người chơi.</p>
+  </div>
+  <div class="feature-card fc-purple">
+    <h4 lang-en>Item Protection</h4><h4 lang-vi>Bảo vệ vật phẩm</h4>
+    <p lang-en>Dropped rewards are locked to their owner. Configurable expiry: public or despawn.</p>
+    <p lang-vi>Vật phẩm rơi ra chỉ chủ nhân mới nhặt được. Hết hạn có thể cho công khai hoặc xoá luôn.</p>
+  </div>
+  <div class="feature-card fc-orange">
+    <h4 lang-en>Full Persistence</h4><h4 lang-vi>Lưu trữ đầy đủ</h4>
+    <p lang-en>Boss state + offline rewards survive server restarts. Queued rewards delivered on join.</p>
+    <p lang-vi>Trạng thái Boss và phần thưởng offline giữ nguyên qua restart. Vào lại server là nhận thưởng.</p>
+  </div>
+</div>
+
+<!-- INSTALLATION -->
+<h2 id="installation"><span lang-en>Installation</span><span lang-vi>Cài đặt</span></h2>
+
+<ul class="checklist" lang-en>
+  <li><span class="check">+</span> <span>Install <strong>MythicMobs 5.x</strong> (required dependency)</span></li>
+  <li><span class="check">+</span> <span>Place <code>SLBossSpawner-2.0.0.jar</code> into <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Restart the server &mdash; config files are generated automatically</span></li>
+  <li><span class="check">+</span> <span>Edit configs in <code>plugins/SLBossSpawner/</code></span></li>
+  <li><span class="check">+</span> <span>Run <code>/slboss reload</code> to apply changes</span></li>
+</ul>
+<ul class="checklist" lang-vi>
+  <li><span class="check">+</span> <span>Cài <strong>MythicMobs 5.x</strong> (bắt buộc phải có)</span></li>
+  <li><span class="check">+</span> <span>Bỏ file <code>SLBossSpawner-2.0.0.jar</code> vào thư mục <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Restart server &mdash; các file config sẽ được tạo tự động</span></li>
+  <li><span class="check">+</span> <span>Chỉnh cấu hình trong <code>plugins/SLBossSpawner/</code></span></li>
+  <li><span class="check">+</span> <span>Gõ <code>/slboss reload</code> để áp dụng</span></li>
+</ul>
+
+<div class="callout callout-info">
+  <strong lang-en>Optional Integrations</strong><strong lang-vi>Plugin tuỳ chọn</strong>
+  <span lang-en><strong>PlaceholderAPI</strong> &mdash; scoreboard/hologram placeholders &nbsp;|&nbsp; <strong>MMOItems</strong> &mdash; custom item rewards</span>
+  <span lang-vi><strong>PlaceholderAPI</strong> &mdash; dùng placeholder cho scoreboard, hologram &nbsp;|&nbsp; <strong>MMOItems</strong> &mdash; dùng vật phẩm tuỳ chỉnh làm phần thưởng</span>
+</div>
+
+<!-- CONFIG.YML -->
+<h2 id="config">config.yml</h2>
+
+<pre><span class="comment"># SLBossSpawner Configuration</span>
+<span class="key">prefix</span>: <span class="str">"&amp;#FF6B6B[&amp;#FFD93DSLBossSpawner&amp;#FF6B6B] "</span>
+<span class="key">debug</span>: <span class="val">false</span>
+<span class="key">language</span>: <span class="str">"vi"</span>   <span class="comment"># "en" = English, "vi" = Tieng Viet</span></pre>
+
+<table>
+  <thead><tr>
+    <th lang-en>Key</th><th lang-vi>Khoá</th>
+    <th lang-en>Description</th><th lang-vi>Mô tả</th>
+    <th lang-en>Default</th><th lang-vi>Mặc định</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>prefix</code></td>
+      <td lang-en>Chat prefix with hex color support</td><td lang-vi>Tiền tố chat, hỗ trợ mã màu hex</td>
+      <td><code>&#FF6B6B[...]</code></td>
+    </tr>
+    <tr>
+      <td><code>debug</code></td>
+      <td lang-en>Enable debug logging</td><td lang-vi>Bật log chi tiết để debug</td>
+      <td><code>false</code></td>
+    </tr>
+    <tr>
+      <td><code>language</code></td>
+      <td lang-en>Message language file</td><td lang-vi>File ngôn ngữ cho các thông báo</td>
+      <td><code>vi</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SCHEDULES.YML -->
+<h2 id="schedules">schedules.yml</h2>
+
+<p lang-en>Each top-level key defines a boss with its MythicMob, schedule, location, and broadcast settings.</p>
+<p lang-vi>Mỗi khoá cấp cao nhất là một Boss, gồm thông tin MythicMob, lịch spawn, vị trí và cài đặt thông báo.</p>
+
+<pre><span class="key">boss</span>:                          <span class="comment"># Boss ID (must match reward.yml)</span>
+  <span class="key">mythicmob</span>: <span class="str">SkeletonKing</span>     <span class="comment"># MythicMobs internal name</span>
+  <span class="key">expire</span>: <span class="num">3600</span>                <span class="comment"># Despawn after 3600s (1 hour)</span>
+  <span class="key">clearOnExpire</span>: <span class="val">true</span>          <span class="comment"># Remove entity when expired</span>
+  <span class="key">time-settings</span>:
+    <span class="key">zone</span>: <span class="str">Asia/Ho_Chi_Minh</span>    <span class="comment"># IANA timezone</span>
+    <span class="key">time</span>:
+      - <span class="str">"12:00"</span>               <span class="comment"># Spawn at noon</span>
+      - <span class="str">"18:00"</span>               <span class="comment"># Spawn at 6 PM</span>
+      - <span class="str">"21:00"</span>               <span class="comment"># Spawn at 9 PM</span>
+  <span class="key">location</span>:
+    <span class="key">x</span>: <span class="num">100</span>  <span class="key">y</span>: <span class="num">64</span>  <span class="key">z</span>: <span class="num">-200</span>
+    <span class="key">world</span>: <span class="str">bossworld</span>
+    <span class="key">leashRadius</span>: <span class="num">10</span>           <span class="comment"># Max wander distance (0 = no limit)</span>
+  <span class="key">loadChunks</span>: <span class="val">true</span>             <span class="comment"># Force-load spawn chunk</span>
+  <span class="key">broadcast</span>:
+    <span class="key">death</span>:
+      <span class="key">chat</span>: <span class="val">true</span>  <span class="key">title</span>: <span class="val">true</span>
+    <span class="key">spawn-warning</span>:
+      <span class="key">chat</span>: <span class="val">true</span>  <span class="key">title</span>: <span class="val">true</span>  <span class="key">bossbar</span>: <span class="val">true</span>
+      <span class="key">intervals</span>: [<span class="num">30</span>, <span class="num">15</span>, <span class="num">5</span>, <span class="num">1</span>]  <span class="comment"># Warning at X minutes before spawn</span></pre>
+
+<details>
+  <summary lang-en>Schedule Field Reference</summary>
+  <summary lang-vi>Bảng tra cứu các trường</summary>
+  <div class="detail-body">
+    <table>
+      <thead><tr>
+        <th>Field</th>
+        <th lang-en>Description</th><th lang-vi>Mô tả</th>
+        <th>Type</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><code>mythicmob</code></td><td lang-en>MythicMobs mob ID</td><td lang-vi>ID mob trong MythicMobs</td><td>String</td></tr>
+        <tr><td><code>expire</code></td><td lang-en>Seconds until auto-despawn</td><td lang-vi>Số giây trước khi tự biến mất</td><td>Integer</td></tr>
+        <tr><td><code>clearOnExpire</code></td><td lang-en>Remove entity on expire</td><td lang-vi>Xoá entity khi hết thời gian</td><td>Boolean</td></tr>
+        <tr><td><code>time-settings.zone</code></td><td lang-en>IANA timezone</td><td lang-vi>Múi giờ theo chuẩn IANA</td><td>String</td></tr>
+        <tr><td><code>time-settings.time</code></td><td lang-en>Spawn times (HH:mm)</td><td lang-vi>Giờ triệu hồi (HH:mm)</td><td>List</td></tr>
+        <tr><td><code>location.*</code></td><td lang-en>Spawn coordinates + world</td><td lang-vi>Toạ độ spawn + world</td><td>Number/String</td></tr>
+        <tr><td><code>leashRadius</code></td><td lang-en>Max distance from spawn</td><td lang-vi>Khoảng cách tối đa Boss đi được tính từ điểm spawn</td><td>Integer</td></tr>
+        <tr><td><code>loadChunks</code></td><td lang-en>Force chunk load on spawn</td><td lang-vi>Buộc load chunk khi spawn Boss</td><td>Boolean</td></tr>
+        <tr><td><code>broadcast.*</code></td><td lang-en>Toggle chat/title/bossbar</td><td lang-vi>Bật/tắt chat, title, bossbar</td><td>Boolean</td></tr>
+        <tr><td><code>intervals</code></td><td lang-en>Warning minutes before spawn</td><td lang-vi>Số phút cảnh báo trước khi spawn</td><td>List&lt;Integer&gt;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<!-- REWARD.YML -->
+<h2 id="rewards-config">reward.yml</h2>
+
+<p lang-en>Reward configuration per boss. Each boss has 3 categories: <strong>damage</strong>, <strong>tank</strong>, <strong>support</strong> &mdash; each with configurable tiers.</p>
+<p lang-vi>Cấu hình phần thưởng cho từng Boss. Mỗi Boss có 3 hạng mục: <strong>sát thương</strong>, <strong>chịu đòn</strong>, <strong>hỗ trợ</strong> &mdash; mỗi hạng mục chia thành nhiều bậc thưởng khác nhau.</p>
+
+<pre><span class="key">boss</span>:                               <span class="comment"># Must match schedules.yml ID</span>
+  <span class="key">enabled</span>: <span class="val">true</span>
+  <span class="key">item-protection</span>:
+    <span class="key">enabled</span>: <span class="val">true</span>
+    <span class="key">duration</span>: <span class="num">60</span>                   <span class="comment"># Seconds before expiry</span>
+    <span class="key">expire-action</span>: <span class="str">public</span>          <span class="comment"># "public" or "despawn"</span>
+  <span class="key">last-hit-bonus</span>:
+    <span class="key">multiplier</span>: <span class="num">1.5</span>                <span class="comment"># Bonus for the killing blow</span>
+  <span class="key">global-multiplier</span>: <span class="num">1.0</span>           <span class="comment"># Multiply all item amounts</span>
+
+  <span class="key">damage</span>:                            <span class="comment"># Damage category</span>
+    <span class="key">enabled</span>: <span class="val">true</span>
+    <span class="key">tiers</span>:
+      <span class="key">1</span>:                              <span class="comment"># Rank #1</span>
+        <span class="key">multiplier</span>: <span class="num">3.0</span>
+        <span class="key">commands</span>:
+          - <span class="str">"eco give {player} 5000"</span>
+        <span class="key">drop-tables</span>:
+          - <span class="str">"BossLootTable"</span>
+        <span class="key">items</span>:
+          - <span class="key">type</span>: <span class="str">vanilla</span>
+            <span class="key">material</span>: <span class="str">DIAMOND</span>
+            <span class="key">amount</span>: <span class="num">5</span>
+            <span class="key">display-name</span>: <span class="str">"&amp;#FFD93D&amp;lTop 1 Damage"</span></pre>
+
+<details>
+  <summary lang-en>Item Type Examples (Vanilla / MMOItems / MythicMobs)</summary>
+  <summary lang-vi>Ví dụ các loại vật phẩm (Vanilla / MMOItems / MythicMobs)</summary>
+  <div class="detail-body">
+<pre><span class="comment"># Vanilla Minecraft item</span>
+- <span class="key">type</span>: <span class="str">vanilla</span>
+  <span class="key">material</span>: <span class="str">DIAMOND</span>
+  <span class="key">amount</span>: <span class="num">5</span>
+  <span class="key">display-name</span>: <span class="str">"&amp;#FFD93D&amp;lCustom Name"</span>
+
+<span class="comment"># MMOItems item (requires MMOItems plugin)</span>
+- <span class="key">type</span>: <span class="str">mmoitems</span>
+  <span class="key">material</span>: <span class="str">SWORD</span>           <span class="comment"># MMOItems type</span>
+  <span class="key">id</span>: <span class="str">"CUSTOM_SWORD"</span>        <span class="comment"># MMOItems ID</span>
+  <span class="key">amount</span>: <span class="num">1</span>
+
+<span class="comment"># MythicMobs item (built-in)</span>
+- <span class="key">type</span>: <span class="str">mythicmobs</span>
+  <span class="key">material</span>: <span class="str">"CustomItem"</span>   <span class="comment"># MythicMobs internal name</span>
+  <span class="key">amount</span>: <span class="num">1</span></pre>
+  </div>
+</details>
+
+<details>
+  <summary lang-en>Reward Field Reference</summary>
+  <summary lang-vi>Bảng tra cứu phần thưởng</summary>
+  <div class="detail-body">
+    <table>
+      <thead><tr>
+        <th>Field</th>
+        <th lang-en>Description</th><th lang-vi>Mô tả</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><code>enabled</code></td><td lang-en>Enable/disable rewards for this boss</td><td lang-vi>Bật/tắt thưởng cho boss này</td></tr>
+        <tr><td><code>item-protection.duration</code></td><td lang-en>Seconds before item becomes public/despawns</td><td lang-vi>Số giây trước khi vật phẩm thành công khai hoặc biến mất</td></tr>
+        <tr><td><code>item-protection.expire-action</code></td><td lang-en><code>public</code> = anyone picks up, <code>despawn</code> = removed</td><td lang-vi><code>public</code> = ai nhặt cũng được, <code>despawn</code> = xoá khỏi thế giới</td></tr>
+        <tr><td><code>last-hit-bonus.multiplier</code></td><td lang-en>Item amount multiplier for killing blow</td><td lang-vi>Hệ số nhân cho người ra đòn kết liễu</td></tr>
+        <tr><td><code>global-multiplier</code></td><td lang-en>Multiply all item amounts globally</td><td lang-vi>Hệ số nhân áp dụng cho tất cả vật phẩm</td></tr>
+        <tr><td><code>tiers.N.multiplier</code></td><td lang-en>Item amount multiplier for rank N</td><td lang-vi>Hệ số nhân vật phẩm cho người xếp hạng N</td></tr>
+        <tr><td><code>tiers.N.commands</code></td><td lang-en>Console commands (<code>{player}</code> placeholder)</td><td lang-vi>Lệnh console (dùng <code>{player}</code> thay tên người chơi)</td></tr>
+        <tr><td><code>tiers.N.drop-tables</code></td><td lang-en>MythicMobs drop tables to execute</td><td lang-vi>Bảng loot MythicMobs sẽ được chạy</td></tr>
+        <tr><td><code>tiers.N.items</code></td><td lang-en>Item rewards (vanilla/mmoitems/mythicmobs)</td><td lang-vi>Vật phẩm thưởng (vanilla, MMOItems hoặc MythicMobs)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<!-- PLAYER TRACKING -->
+<h2 id="tracking"><span lang-en>Player Tracking</span><span lang-vi>Theo dõi người chơi</span></h2>
+
+<p lang-en>SLBossSpawner tracks player contributions in <strong>3 independent categories</strong> during boss fights:</p>
+<p lang-vi>Trong mỗi trận đánh Boss, plugin sẽ theo dõi đóng góp của người chơi qua <strong>3 hạng mục riêng biệt</strong>:</p>
+
+<div class="category-cards">
+  <div class="cat-card damage">
+    <div class="cat-label">DMG</div>
+    <h4>Damage</h4>
+    <p lang-en>Total damage dealt <strong>to</strong> the boss. Direct hits, arrows, pets, TNT, area effects.</p>
+    <p lang-vi>Tổng sát thương gây <strong>lên</strong> Boss. Tính cả đánh tay, bắn tên, thú cưng, TNT, hiệu ứng diện rộng.</p>
+  </div>
+  <div class="cat-card tank">
+    <div class="cat-label">TNK</div>
+    <h4>Tank</h4>
+    <p lang-en>Total damage received <strong>from</strong> the boss. Rewards players who absorb hits for the team.</p>
+    <p lang-vi>Tổng sát thương chịu <strong>từ</strong> Boss. Ai đứng chắn đỡ đòn cho đồng đội sẽ được ghi nhận.</p>
+  </div>
+  <div class="cat-card support">
+    <div class="cat-label">SUP</div>
+    <h4>Support</h4>
+    <p lang-en>Harmful potion effects applied to the boss. 16 supported debuff types tracked.</p>
+    <p lang-vi>Hiệu ứng debuff áp lên Boss. Plugin theo dõi 16 loại hiệu ứng có hại.</p>
+  </div>
+</div>
+
+<details>
+  <summary lang-en>Damage Attribution Details</summary>
+  <summary lang-vi>Chi tiết quy kết sát thương</summary>
+  <div class="detail-body">
+    <table>
+      <thead><tr>
+        <th lang-en>Source</th><th lang-vi>Nguồn</th>
+        <th lang-en>Attributed To</th><th lang-vi>Quy cho</th>
+      </tr></thead>
+      <tbody>
+        <tr><td lang-en>Direct melee hit</td><td lang-vi>Đánh trực tiếp</td><td lang-en>Attacker</td><td lang-vi>Người tấn công</td></tr>
+        <tr><td lang-en>Arrow / Trident</td><td lang-vi>Tên / Đinh ba</td><td lang-en>Shooter</td><td lang-vi>Người bắn</td></tr>
+        <tr><td lang-en>Tamed wolf/pet</td><td lang-vi>Thú cưng đã thuần</td><td lang-en>Pet owner</td><td lang-vi>Chủ thú cưng</td></tr>
+        <tr><td>TNT</td><td lang-en>TNT igniter</td><td lang-vi>Người kích nổ</td></tr>
+        <tr><td lang-en>Area Effect Cloud</td><td lang-vi>Đám mây hiệu ứng</td><td lang-en>Cloud source</td><td lang-vi>Nguồn tạo đám mây</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details>
+  <summary lang-en>Tracked Support Effects (16 types)</summary>
+  <summary lang-vi>Các hiệu ứng hỗ trợ được theo dõi (16 loại)</summary>
+  <div class="detail-body">
+    <p><code>POISON</code> <code>WITHER</code> <code>SLOW</code> <code>WEAKNESS</code> <code>MINING_FATIGUE</code> <code>BLINDNESS</code> <code>HUNGER</code> <code>NAUSEA</code> <code>LEVITATION</code> <code>GLOWING</code> <code>BAD_OMEN</code> <code>DARKNESS</code> <code>WIND_CHARGED</code> <code>WEAVING</code> <code>OOZING</code> <code>INFESTED</code></p>
+  </div>
+</details>
+
+<!-- REWARD SYSTEM -->
+<h2 id="rewards"><span lang-en>Reward System</span><span lang-vi>Hệ thống phần thưởng</span></h2>
+
+<h3 lang-en>How It Works</h3><h3 lang-vi>Cách hoạt động</h3>
+
+<ol lang-en>
+  <li><strong>Boss dies</strong> &mdash; MythicMobDeathEvent triggers reward distribution</li>
+  <li><strong>Rankings built</strong> &mdash; Players sorted by contribution per category</li>
+  <li><strong>Tier matching</strong> &mdash; Rank #1 gets tier 1 rewards, rank #2 gets tier 2, etc.</li>
+  <li><strong>Multipliers applied</strong> &mdash; <code>tier x global x last-hit-bonus</code> (if applicable)</li>
+  <li><strong>Rewards delivered</strong> &mdash; Commands executed, items given (or dropped with protection)</li>
+  <li><strong>Offline queue</strong> &mdash; If player is offline, rewards are saved and delivered on next join</li>
+</ol>
+<ol lang-vi>
+  <li><strong>Boss chết</strong> &mdash; MythicMobDeathEvent kích hoạt việc chia thưởng</li>
+  <li><strong>Lập bảng xếp hạng</strong> &mdash; Người chơi được xếp theo đóng góp ở mỗi hạng mục</li>
+  <li><strong>Ghép bậc thưởng</strong> &mdash; Hạng 1 nhận thưởng bậc 1, hạng 2 nhận bậc 2, v.v.</li>
+  <li><strong>Áp hệ số nhân</strong> &mdash; <code>bậc x toàn cục x thưởng đòn kết liễu</code> (nếu có)</li>
+  <li><strong>Phát thưởng</strong> &mdash; Chạy lệnh, trao đồ vào túi (hoặc rơi ra kèm bảo vệ nếu túi đầy)</li>
+  <li><strong>Hàng đợi offline</strong> &mdash; Người chơi đang offline sẽ nhận thưởng khi đăng nhập lại</li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong lang-en>Tip: Reward Types</strong><strong lang-vi>Gợi ý: Kết hợp phần thưởng</strong>
+  <span lang-en>You can combine <strong>commands</strong>, <strong>drop tables</strong>, and <strong>items</strong> (vanilla/MMOItems/MythicMobs) freely within each tier.</span>
+  <span lang-vi>Mỗi bậc thưởng có thể kết hợp tuỳ ý giữa <strong>lệnh</strong>, <strong>bảng loot</strong> và <strong>vật phẩm</strong> (vanilla, MMOItems hoặc MythicMobs) &mdash; không giới hạn.</span>
+</div>
+
+<!-- BROADCASTS -->
+<h2 id="broadcast"><span lang-en>Broadcasts</span><span lang-vi>Thông báo</span></h2>
+
+<h3 lang-en>Spawn Warnings</h3><h3 lang-vi>Cảnh báo trước khi spawn</h3>
+<p lang-en>Countdown warnings are sent at configured intervals (in minutes) before boss spawn. Channels: <strong>chat</strong>, <strong>title</strong>, <strong>bossbar</strong> &mdash; each independently toggleable.</p>
+<p lang-vi>Thông báo đếm ngược được gửi theo các mốc thời gian (tính bằng phút) trước khi Boss xuất hiện. Có 3 kênh: <strong>chat</strong>, <strong>title</strong>, <strong>bossbar</strong> &mdash; mỗi kênh bật/tắt riêng.</p>
+
+<h3 lang-en>Death Announcements</h3><h3 lang-vi>Thông báo khi Boss bị hạ</h3>
+<p lang-en>When a boss dies, announcements show the killer's name. Ranking leaderboards display the top contributors per category.</p>
+<p lang-vi>Khi Boss bị tiêu diệt, hệ thống sẽ thông báo tên người hạ gục. Bảng xếp hạng hiển thị top người đóng góp theo từng hạng mục.</p>
+
+<!-- ITEM PROTECTION -->
+<h2 id="item-protection"><span lang-en>Item Protection</span><span lang-vi>Bảo vệ vật phẩm</span></h2>
+
+<p lang-en>When a player's inventory is full, reward items drop on the ground with <strong>owner-only pickup</strong> protection.</p>
+<p lang-vi>Khi túi đồ người chơi đầy, vật phẩm thưởng sẽ rơi xuống đất và được <strong>khoá cho chủ nhân</strong> &mdash; chỉ người đó mới nhặt được.</p>
+
+<ol lang-en>
+  <li>Item dropped &rarr; tagged with owner UUID via <code>PersistentDataContainer</code></li>
+  <li>Other players cannot pick up &mdash; shown actionbar denial message</li>
+  <li>After <code>duration</code> seconds, based on <code>expire-action</code>:
+    <ul>
+      <li><code>public</code> &mdash; Protection removed, anyone can pick up</li>
+      <li><code>despawn</code> &mdash; Item removed from the world</li>
+    </ul>
+  </li>
+</ol>
+<ol lang-vi>
+  <li>Vật phẩm rơi ra &rarr; được gắn UUID chủ nhân qua <code>PersistentDataContainer</code></li>
+  <li>Người khác nhặt sẽ bị từ chối, kèm thông báo trên actionbar</li>
+  <li>Sau <code>duration</code> giây, tuỳ theo <code>expire-action</code>:
+    <ul>
+      <li><code>public</code> &mdash; Bỏ khoá, ai nhặt cũng được</li>
+      <li><code>despawn</code> &mdash; Vật phẩm biến mất</li>
+    </ul>
+  </li>
+</ol>
+
+<!-- PERSISTENCE -->
+<h2 id="persistence"><span lang-en>Persistence</span><span lang-vi>Lưu trữ dữ liệu</span></h2>
+
+<h3 lang-en>Boss State</h3><h3 lang-vi>Trạng thái Boss</h3>
+<p lang-en>Active bosses are saved to <code>boss-state.yml</code> and restored on server restart. If a boss expired during downtime, it's skipped and rescheduled.</p>
+<p lang-vi>Boss đang hoạt động sẽ được lưu vào <code>boss-state.yml</code>. Khi server khởi động lại, Boss sẽ được phục hồi. Nếu đã hết hạn trong lúc tắt server thì bỏ qua và lên lịch mới.</p>
+
+<h3 lang-en>Offline Rewards</h3><h3 lang-vi>Phần thưởng khi offline</h3>
+<p lang-en>Rewards for offline players are saved to <code>pending-rewards.yml</code> and automatically delivered when the player joins (2-second delay for safe loading).</p>
+<p lang-vi>Nếu người chơi offline lúc nhận thưởng, phần thưởng sẽ được lưu vào <code>pending-rewards.yml</code>. Khi họ vào lại server, hệ thống tự động trao sau 2 giây (chờ load xong cho chắc).</p>
+
+<!-- COMMANDS -->
+<h2 id="commands"><span lang-en>Commands</span><span lang-vi>Lệnh</span></h2>
+
+<div class="callout callout-info">
+  <strong lang-en>Base Command</strong><strong lang-vi>Lệnh gốc</strong>
+  <span><code>/slboss</code> &nbsp;|&nbsp; <span lang-en>Alias:</span><span lang-vi>Viết tắt:</span> <code>/slbs</code></span>
+</div>
+
+<table>
+  <thead><tr>
+    <th lang-en>Command</th><th lang-vi>Lệnh</th>
+    <th lang-en>Permission</th><th lang-vi>Quyền</th>
+    <th lang-en>Description</th><th lang-vi>Mô tả</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>/slboss</code></td>
+      <td><code>slboss.use</code></td>
+      <td lang-en>Show help menu</td><td lang-vi>Hiện bảng trợ giúp</td>
+    </tr>
+    <tr>
+      <td><code>/slboss reload</code></td>
+      <td><code>slboss.reload</code></td>
+      <td lang-en>Reload all config files</td><td lang-vi>Tải lại tất cả file cấu hình</td>
+    </tr>
+    <tr>
+      <td><code>/slboss spawn [id]</code></td>
+      <td><code>slboss.spawn</code></td>
+      <td lang-en>Force spawn boss (all if no id)</td><td lang-vi>Triệu hồi Boss ngay (không ghi id thì spawn hết)</td>
+    </tr>
+    <tr>
+      <td><code>/slboss despawn [id]</code></td>
+      <td><code>slboss.despawn</code></td>
+      <td lang-en>Despawn boss (all if no id)</td><td lang-vi>Xoá Boss (không ghi id thì xoá hết)</td>
+    </tr>
+    <tr>
+      <td><code>/slboss info</code></td>
+      <td><code>slboss.info</code></td>
+      <td lang-en>Detailed status of all bosses</td><td lang-vi>Xem trạng thái chi tiết tất cả Boss</td>
+    </tr>
+    <tr>
+      <td><code>/slboss list</code></td>
+      <td><code>slboss.info</code></td>
+      <td lang-en>List all configured bosses</td><td lang-vi>Liệt kê các Boss đã cấu hình</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- PLACEHOLDERS -->
+<h2 id="placeholders">Placeholders</h2>
+
+<p lang-en>Requires <strong>PlaceholderAPI</strong>. Prefix: <code>%slbs_&lt;bossId&gt;.&lt;key&gt;%</code></p>
+<p lang-vi>Cần cài <strong>PlaceholderAPI</strong>. Cú pháp: <code>%slbs_&lt;bossId&gt;.&lt;key&gt;%</code></p>
+
+<table>
+  <thead><tr>
+    <th>Placeholder</th>
+    <th lang-en>Output</th><th lang-vi>Kết quả</th>
+    <th lang-en>Example</th><th lang-vi>Ví dụ</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>%slbs_boss.status%</code></td>
+      <td lang-en>"Alive" or "Dead"</td><td lang-vi>"Alive" hoặc "Dead"</td>
+      <td><code>Alive</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_boss.current%</code></td>
+      <td lang-en>Current MythicMob name</td><td lang-vi>Tên MythicMob đang hoạt động</td>
+      <td><code>SkeletonKing</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_boss.mob%</code></td>
+      <td lang-en>MythicMob ID</td><td lang-vi>ID MythicMob</td>
+      <td><code>SkeletonKing</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_boss.next%</code></td>
+      <td lang-en>Time until next spawn (M:SS)</td><td lang-vi>Thời gian còn lại đến lần spawn tiếp (M:SS)</td>
+      <td><code>15:30</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_boss.next_formatted%</code></td>
+      <td lang-en>Next spawn time (HH:mm)</td><td lang-vi>Giờ spawn tiếp theo (HH:mm)</td>
+      <td><code>18:00</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_boss.expire%</code></td>
+      <td lang-en>Time until despawn (M:SS)</td><td lang-vi>Thời gian trước khi Boss biến mất (M:SS)</td>
+      <td><code>45:20</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_count%</code></td>
+      <td lang-en>Total boss count</td><td lang-vi>Tổng số Boss</td>
+      <td><code>3</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- PERMISSIONS -->
+<h2 id="permissions"><span lang-en>Permissions</span><span lang-vi>Quyền</span></h2>
+
+<table>
+  <thead><tr>
+    <th lang-en>Permission</th><th lang-vi>Quyền</th>
+    <th lang-en>Description</th><th lang-vi>Mô tả</th>
+    <th lang-en>Default</th><th lang-vi>Mặc định</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>slboss.use</code></td>
+      <td lang-en>Access /slboss help</td><td lang-vi>Xem trợ giúp /slboss</td>
+      <td><code>true</code></td>
+    </tr>
+    <tr>
+      <td><code>slboss.info</code></td>
+      <td lang-en>View boss info & list</td><td lang-vi>Xem thông tin và danh sách Boss</td>
+      <td><code>op</code></td>
+    </tr>
+    <tr>
+      <td><code>slboss.spawn</code></td>
+      <td lang-en>Force spawn bosses</td><td lang-vi>Triệu hồi Boss bằng lệnh</td>
+      <td><code>op</code></td>
+    </tr>
+    <tr>
+      <td><code>slboss.despawn</code></td>
+      <td lang-en>Despawn bosses</td><td lang-vi>Xoá Boss bằng lệnh</td>
+      <td><code>op</code></td>
+    </tr>
+    <tr>
+      <td><code>slboss.reload</code></td>
+      <td lang-en>Reload configs</td><td lang-vi>Tải lại cấu hình</td>
+      <td><code>op</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Footer -->
+<div class="footer">
+  SLBossSpawner v2.0.0 &mdash; Author: <strong>SalyVn</strong>
+</div>
+
+</main>
+</div>
+
+<script>
+function setLang(lang) {
+  document.body.classList.toggle('vi', lang === 'vi');
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === lang.toUpperCase());
+  });
+  localStorage.setItem('slbs-lang', lang);
+}
+
+// Sidebar active link tracking
+const links = document.querySelectorAll('.sidebar nav a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const id = e.target.id;
+      const link = document.querySelector(`.sidebar nav a[href="#${id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+
+// Restore saved language preference
+const saved = localStorage.getItem('slbs-lang');
+if (saved) setLang(saved);
+</script>
+</body>
+</html>

@@ -1,41 +1,41 @@
-name: FluffyBossSpawner
+name: SLBossSpawner
 version: '${project.version}'
-main: dev.fluffyworld.fluffyBossSpawner.FluffyBossSpawner
+main: dev.salyvn.slBossSpawner.SLBossSpawner
 api-version: '1.21'
-author: FluffyWorld
+author: SalyVn
 description: Boss spawner plugin with MythicMobs integration
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, MMOItems]
 depend: [MythicMobs]
 
 commands:
-  fboss:
+  slboss:
     description: Main boss spawner command
-    usage: /<command> [reload|spawn|despawn|info]
-    aliases: [fluffyboss, fbs]
-    permission: fluffyboss.use
-    
+    usage: /<command> [help|reload|spawn|despawn|info|list]
+    aliases: [slbs]
+    permission: slboss.use
+
 permissions:
-  fluffyboss.use:
+  slboss.use:
     description: Basic command access
     default: op
-  fluffyboss.reload:
+  slboss.reload:
     description: Reload plugin configuration
     default: op
-  fluffyboss.spawn:
+  slboss.spawn:
     description: Force spawn boss
     default: op
-  fluffyboss.despawn:
+  slboss.despawn:
     description: Despawn current boss
     default: op
-  fluffyboss.info:
+  slboss.info:
     description: View boss information
     default: true
-  fluffyboss.*:
+  slboss.*:
     description: All permissions
     default: op
     children:
-      fluffyboss.use: true
-      fluffyboss.reload: true
-      fluffyboss.spawn: true
-      fluffyboss.despawn: true
-      fluffyboss.info: true
+      slboss.use: true
+      slboss.reload: true
+      slboss.spawn: true
+      slboss.despawn: true
+      slboss.info: true

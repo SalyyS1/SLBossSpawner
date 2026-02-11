@@ -1,4 +1,8 @@
-# FluffyBossSpawner Configuration
+# SLBossSpawner Configuration
 
-prefix: "&#FF6B6B[&#FFD93DFluffyBossSpawner&#FF6B6B] "
+prefix: "&#FF6B6B[&#FFD93DSLBossSpawner&#FF6B6B] "
 debug: false
+
+# Language: "en" (English) or "vi" (Vietnamese)
+# Uses message.yml for "en", message-vi.yml for "vi"
+language: vi
