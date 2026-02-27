@@ -857,6 +857,17 @@
 <p lang-en>Reads from in-memory cache (non-blocking). Returns <code>---</code> if rank not available.</p>
 <p lang-vi>Đọc từ bộ nhớ đệm (không gây lag). Trả về <code>---</code> nếu hạng không có.</p>
 
+<div class="callout callout-info">
+  <strong lang-en>Format</strong><strong lang-vi>Cú pháp</strong>
+  <span lang-en><code>%slbs_top_&lt;metric&gt;_&lt;rank&gt;_&lt;name|value&gt;%</code> → all-time (default)<br>
+  <code>%slbs_top_&lt;period&gt;_&lt;metric&gt;_&lt;rank&gt;_&lt;name|value&gt;%</code> → specific period</span>
+  <span lang-vi><code>%slbs_top_&lt;metric&gt;_&lt;rank&gt;_&lt;name|value&gt;%</code> → toàn thời gian (mặc định)<br>
+  <code>%slbs_top_&lt;period&gt;_&lt;metric&gt;_&lt;rank&gt;_&lt;name|value&gt;%</code> → theo kỳ cụ thể</span>
+</div>
+
+<p lang-en><strong>Periods:</strong> <code>alltime</code>, <code>daily</code>, <code>weekly</code>/<code>week</code>, <code>monthly</code>/<code>month</code>, <code>quarterly</code>/<code>quarter</code>, <code>seasonal</code>/<code>season</code>, <code>yearly</code>/<code>year</code></p>
+<p lang-vi><strong>Các kỳ:</strong> <code>alltime</code>, <code>daily</code>, <code>weekly</code>/<code>week</code>, <code>monthly</code>/<code>month</code>, <code>quarterly</code>/<code>quarter</code>, <code>seasonal</code>/<code>season</code>, <code>yearly</code>/<code>year</code></p>
+
 <table>
   <thead><tr>
     <th>Placeholder</th>
@@ -866,18 +877,28 @@
   <tbody>
     <tr>
       <td><code>%slbs_top_damage_1_name%</code></td>
-      <td lang-en>Top 1 damage player name</td><td lang-vi>Tên người chơi top 1 sát thương</td>
+      <td lang-en>Top 1 damage all-time player name</td><td lang-vi>Tên người chơi top 1 sát thương (toàn thời gian)</td>
       <td><code>Steve</code></td>
     </tr>
     <tr>
       <td><code>%slbs_top_damage_1_value%</code></td>
-      <td lang-en>Top 1 damage value</td><td lang-vi>Giá trị sát thương top 1</td>
+      <td lang-en>Top 1 damage all-time value</td><td lang-vi>Giá trị sát thương top 1 (toàn thời gian)</td>
       <td><code>15420</code></td>
     </tr>
     <tr>
-      <td><code>%slbs_top_kills_3_name%</code></td>
-      <td lang-en>Top 3 kills player name</td><td lang-vi>Tên người chơi top 3 hạ gục</td>
+      <td><code>%slbs_top_monthly_damage_1_name%</code></td>
+      <td lang-en>Top 1 damage this month player name</td><td lang-vi>Tên người chơi top 1 sát thương tháng này</td>
       <td><code>Alex</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_top_weekly_kills_3_value%</code></td>
+      <td lang-en>Top 3 kills this week value</td><td lang-vi>Giá trị hạ gục top 3 tuần này</td>
+      <td><code>7</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_top_daily_tank_1_name%</code></td>
+      <td lang-en>Top 1 tank today player name</td><td lang-vi>Tên người chơi top 1 chịu đòn hôm nay</td>
+      <td><code>Tank_Player</code></td>
     </tr>
   </tbody>
 </table>
@@ -973,8 +994,8 @@
   <li lang-vi><code>/slboss stats [player]</code> — xem thống kê người chơi</li>
   <li lang-en><code>/slboss top &lt;metric&gt; [period] [boss]</code> — leaderboard with tab completion</li>
   <li lang-vi><code>/slboss top &lt;metric&gt; [period] [boss]</code> — bảng xếp hạng có tab-complete</li>
-  <li lang-en>Leaderboard &amp; stats PlaceholderAPI expansions</li>
-  <li lang-vi>Placeholder PlaceholderAPI cho bảng xếp hạng &amp; thống kê</li>
+  <li lang-en>Leaderboard &amp; stats PlaceholderAPI expansions (with period support: daily, weekly, monthly, etc.)</li>
+  <li lang-vi>Placeholder PlaceholderAPI cho bảng xếp hạng &amp; thống kê (hỗ trợ theo kỳ: ngày, tuần, tháng, v.v.)</li>
   <li lang-en>In-memory leaderboard cache with async refresh</li>
   <li lang-vi>Bộ nhớ đệm bảng xếp hạng với làm mới bất đồng bộ</li>
   <li lang-en>Automatic period archival (daily, weekly, monthly, etc.)</li>

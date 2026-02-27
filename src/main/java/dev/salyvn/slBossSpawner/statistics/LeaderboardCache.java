@@ -69,12 +69,11 @@ public class LeaderboardCache {
     }
 
     /**
-     * Async refresh. Queries ALL_TIME/__global__ and DAILY/today/__global__ for all metrics.
+     * Async refresh. Queries all period types for __global__ for all metrics.
      */
     private void refreshAll() {
         try {
             LocalDate today = LocalDate.now(ZoneOffset.UTC);
-            String dailyKey = PeriodType.DAILY.computeKey(today, seasonResolver);
 
             for (int i = 0; i < METRICS.length; i++) {
                 String metric = METRICS[i];
@@ -83,8 +82,11 @@ public class LeaderboardCache {
                 // ALL_TIME / all / __global__
                 refreshSingle(metric, "ALL_TIME", "all", "__global__", dbColumn);
 
-                // DAILY / today / __global__
-                refreshSingle(metric, "DAILY", dailyKey, "__global__", dbColumn);
+                // All period types for current period key
+                for (PeriodType pt : PeriodType.ARCHIVABLE) {
+                    String key = pt.computeKey(today, seasonResolver);
+                    refreshSingle(metric, pt.name(), key, "__global__", dbColumn);
+                }
             }
 
             plugin.debug("Leaderboard cache refreshed (" + cache.size() + " entries)");
