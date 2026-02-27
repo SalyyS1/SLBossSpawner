@@ -4,6 +4,7 @@ import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossInstance;
 import dev.salyvn.slBossSpawner.config.MessageManager;
 import dev.salyvn.slBossSpawner.utils.TimeUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,10 +18,14 @@ import java.util.stream.Collectors;
 public class BossCommand implements CommandExecutor, TabCompleter {
     private final SLBossSpawner plugin;
     private final MessageManager messageManager;
+    private final StatsCommandHandler statsHandler;
+    private final TopCommandHandler topHandler;
 
     public BossCommand(SLBossSpawner plugin, MessageManager messageManager) {
         this.plugin = plugin;
         this.messageManager = messageManager;
+        this.statsHandler = new StatsCommandHandler(plugin, messageManager);
+        this.topHandler = new TopCommandHandler(plugin, messageManager);
     }
 
     @Override
@@ -53,9 +58,16 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                     String bossId = args[1];
                     plugin.getBossScheduler().forceSpawn(bossId);
 
-                    Map<String, String> placeholders = new HashMap<>();
-                    placeholders.put("boss_id", bossId);
-                    sender.sendMessage(messageManager.getMessage("boss-spawned-single", placeholders));
+                    // M8 FIX: only send success message if boss actually spawned
+                    if (plugin.getBossScheduler().hasBoss(bossId)) {
+                        Map<String, String> placeholders = new HashMap<>();
+                        placeholders.put("boss_id", bossId);
+                        sender.sendMessage(messageManager.getMessage("boss-spawned-single", placeholders));
+                    } else {
+                        Map<String, String> placeholders = new HashMap<>();
+                        placeholders.put("boss_id", bossId);
+                        sender.sendMessage(messageManager.getMessage("boss-spawn-failed", placeholders));
+                    }
                 }
             }
             case "despawn" -> {
@@ -90,6 +102,20 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                 }
                 sendInfo(sender);
             }
+            case "stats" -> {
+                if (!sender.hasPermission("slboss.stats")) {
+                    sender.sendMessage(messageManager.getMessage("no-permission"));
+                    return true;
+                }
+                statsHandler.handle(sender, args);
+            }
+            case "top" -> {
+                if (!sender.hasPermission("slboss.top")) {
+                    sender.sendMessage(messageManager.getMessage("no-permission"));
+                    return true;
+                }
+                topHandler.handle(sender, args);
+            }
             default -> sendHelp(sender);
         }
 
@@ -111,6 +137,10 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messageManager.getMessage("help-info"));
             sender.sendMessage(messageManager.getMessage("help-list"));
         }
+        if (sender.hasPermission("slboss.stats"))
+            sender.sendMessage(messageManager.getMessage("help-stats"));
+        if (sender.hasPermission("slboss.top"))
+            sender.sendMessage(messageManager.getMessage("help-top"));
         sender.sendMessage(messageManager.getMessage("help-help"));
         sender.sendMessage(messageManager.getMessage("help-footer"));
     }
@@ -179,7 +209,7 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             List<String> completions = new ArrayList<>();
             String input = args[0].toLowerCase();
 
-            List<String> subcommands = Arrays.asList("help", "reload", "spawn", "despawn", "info", "list");
+            List<String> subcommands = Arrays.asList("help", "reload", "spawn", "despawn", "info", "list", "stats", "top");
             for (String sub : subcommands) {
                 if (sub.startsWith(input)) {
                     completions.add(sub);
@@ -193,6 +223,18 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             String input = args[1].toLowerCase();
             return plugin.getBossScheduler().getAllBossInstances().keySet().stream()
                 .filter(id -> id.toLowerCase().startsWith(input))
+                .collect(Collectors.toList());
+        }
+
+        if (args[0].equalsIgnoreCase("top") && args.length >= 2) {
+            return topHandler.tabComplete(args);
+        }
+
+        if (args[0].equalsIgnoreCase("stats") && args.length == 2) {
+            String input = args[1].toLowerCase();
+            return Bukkit.getOnlinePlayers().stream()
+                .map(p -> p.getName())
+                .filter(name -> name.toLowerCase().startsWith(input))
                 .collect(Collectors.toList());
         }
 

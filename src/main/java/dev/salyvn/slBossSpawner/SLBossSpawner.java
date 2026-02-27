@@ -6,7 +6,11 @@ import dev.salyvn.slBossSpawner.commands.BossCommand;
 import dev.salyvn.slBossSpawner.config.ConfigManager;
 import dev.salyvn.slBossSpawner.config.MessageManager;
 import dev.salyvn.slBossSpawner.config.ScheduleManager;
+import dev.salyvn.slBossSpawner.database.DatabaseManager;
 import dev.salyvn.slBossSpawner.listener.BossDeathListener;
+import dev.salyvn.slBossSpawner.statistics.CalendarQuarterSeasonResolver;
+import dev.salyvn.slBossSpawner.statistics.LeaderboardCache;
+import dev.salyvn.slBossSpawner.statistics.StatisticsManager;
 import dev.salyvn.slBossSpawner.listener.DamageTracker;
 import dev.salyvn.slBossSpawner.listener.SupportTracker;
 import dev.salyvn.slBossSpawner.listener.TankTracker;
@@ -35,6 +39,12 @@ public final class SLBossSpawner extends JavaPlugin {
     private RewardManager rewardManager;
     private ItemProtectionListener itemProtectionListener;
     private BossPlaceholder placeholder;
+    private DatabaseManager databaseManager;
+    private StatisticsManager statisticsManager;
+    private LeaderboardCache leaderboardCache;
+
+    // H3 FIX: flag to suppress death-event processing during reload despawn
+    private volatile boolean reloading = false;
 
     @Override
     public void onEnable() {
@@ -44,72 +54,90 @@ public final class SLBossSpawner extends JavaPlugin {
             return;
         }
 
-        // Config & messages
         configManager = new ConfigManager(this);
         messageManager = new MessageManager(this);
         scheduleManager = new ScheduleManager(this);
 
-        // Broadcast
+        if (configManager.isStatisticsEnabled()) {
+            databaseManager = DatabaseManager.create(this, configManager.getDatabaseType());
+            try {
+                databaseManager.initialize();
+                getLogger().info("Statistics database initialized (" + configManager.getDatabaseType() + ")");
+            } catch (Exception e) {
+                getLogger().severe("Failed to initialize statistics database: " + e.getMessage());
+                databaseManager = null;
+            }
+        }
+
+        if (databaseManager != null) {
+            statisticsManager = new StatisticsManager(this, databaseManager, new CalendarQuarterSeasonResolver());
+            statisticsManager.startArchivalScheduler();
+            leaderboardCache = new LeaderboardCache(this, databaseManager, statisticsManager.getSeasonResolver());
+            leaderboardCache.start();
+            getLogger().info("Statistics system enabled!");
+        }
+
         broadcastManager = new BroadcastManager(this);
 
-        // Damage tracking
         damageTracker = new DamageTracker(this);
         Bukkit.getPluginManager().registerEvents(damageTracker, this);
 
-        // Tank tracking
         tankTracker = new TankTracker(this);
         Bukkit.getPluginManager().registerEvents(tankTracker, this);
 
-        // Support tracking
         supportTracker = new SupportTracker(this);
         Bukkit.getPluginManager().registerEvents(supportTracker, this);
 
-        // Item protection
         itemProtectionListener = new ItemProtectionListener(this);
         Bukkit.getPluginManager().registerEvents(itemProtectionListener, this);
 
-        // Rewards
         pendingRewardManager = new PendingRewardManager(this);
         rewardManager = new RewardManager(this, itemProtectionListener);
 
-        // Pending reward delivery on join
         Bukkit.getPluginManager().registerEvents(new PendingRewardListener(this), this);
 
-        // Boss scheduler
         bossScheduler = new BossScheduler(this, scheduleManager);
 
-        // Death listener (needs scheduler, all trackers, reward manager)
         Bukkit.getPluginManager().registerEvents(
-            new BossDeathListener(this, damageTracker, tankTracker, supportTracker, rewardManager), this);
+                new BossDeathListener(this, damageTracker, tankTracker, supportTracker, rewardManager), this);
 
-        // Persistence
         bossStateManager = new BossStateManager(this);
 
-        // Commands
         registerCommands();
 
-        // PlaceholderAPI
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            placeholder = new BossPlaceholder(this);
+            placeholder = new BossPlaceholder(this, leaderboardCache);
             placeholder.register();
             getLogger().info("PlaceholderAPI integration enabled!");
         }
 
-        // MMOItems softdepend check
         if (Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
             getLogger().info("MMOItems integration enabled!");
         }
 
-        // Start scheduler & restore state
         bossScheduler.start();
-        bossStateManager.restoreFromState(bossScheduler);
+
+        // H4 FIX: delay state restore by 2 ticks to ensure worlds are fully loaded
+        Bukkit.getScheduler().runTaskLater(this,
+                () -> bossStateManager.restoreFromState(bossScheduler), 2L);
 
         getLogger().info("SLBossSpawner enabled successfully!");
     }
 
     @Override
     public void onDisable() {
-        // Save state before despawning
+        if (leaderboardCache != null) {
+            leaderboardCache.stop();
+        }
+
+        if (statisticsManager != null) {
+            statisticsManager.shutdown();
+        }
+
+        if (databaseManager != null) {
+            databaseManager.shutdown();
+        }
+
         if (bossStateManager != null && bossScheduler != null) {
             bossStateManager.saveAll();
         }
@@ -119,30 +147,16 @@ public final class SLBossSpawner extends JavaPlugin {
             bossScheduler.despawnAll();
         }
 
-        // Save pending rewards synchronously to avoid data loss on shutdown
         if (pendingRewardManager != null) {
             pendingRewardManager.saveSync();
         }
 
-        if (damageTracker != null) {
-            damageTracker.clearAll();
-        }
+        if (damageTracker != null) damageTracker.clearAll();
+        if (tankTracker != null) tankTracker.clearAll();
+        if (supportTracker != null) supportTracker.clearAll();
 
-        if (tankTracker != null) {
-            tankTracker.clearAll();
-        }
-
-        if (supportTracker != null) {
-            supportTracker.clearAll();
-        }
-
-        if (itemProtectionListener != null) {
-            itemProtectionListener.cleanup();
-        }
-
-        if (placeholder != null) {
-            placeholder.unregister();
-        }
+        if (itemProtectionListener != null) itemProtectionListener.cleanup();
+        if (placeholder != null) placeholder.unregister();
 
         getLogger().info("SLBossSpawner disabled!");
     }
@@ -165,11 +179,43 @@ public final class SLBossSpawner extends JavaPlugin {
     }
 
     public void reload() {
+        // H3 FIX: set flag before despawn so death events fired during reload are ignored
+        reloading = true;
+
         configManager.reload();
         messageManager.reload();
         scheduleManager.reload();
 
-        // Save state, despawn, recreate scheduler
+        // Recreate DB connection with potentially updated config
+        if (leaderboardCache != null) {
+            leaderboardCache.stop();
+            leaderboardCache = null;
+        }
+        if (statisticsManager != null) {
+            statisticsManager.shutdown();
+            statisticsManager = null;
+        }
+        if (databaseManager != null) {
+            databaseManager.shutdown();
+            databaseManager = null;
+        }
+        if (configManager.isStatisticsEnabled()) {
+            databaseManager = DatabaseManager.create(this, configManager.getDatabaseType());
+            try {
+                databaseManager.initialize();
+                getLogger().info("Statistics database reinitialized (" + configManager.getDatabaseType() + ")");
+            } catch (Exception e) {
+                getLogger().severe("Failed to reinitialize statistics database: " + e.getMessage());
+                databaseManager = null;
+            }
+        }
+        if (databaseManager != null) {
+            statisticsManager = new StatisticsManager(this, databaseManager, new CalendarQuarterSeasonResolver());
+            statisticsManager.startArchivalScheduler();
+            leaderboardCache = new LeaderboardCache(this, databaseManager, statisticsManager.getSeasonResolver());
+            leaderboardCache.start();
+        }
+
         bossStateManager.saveAll();
         bossScheduler.stop();
         bossScheduler.despawnAll();
@@ -180,7 +226,12 @@ public final class SLBossSpawner extends JavaPlugin {
         bossScheduler = new BossScheduler(this, scheduleManager);
         bossScheduler.start();
         bossStateManager.restoreFromState(bossScheduler);
+
+        // H3 FIX: clear flag only after new scheduler is running
+        reloading = false;
     }
+
+    public boolean isReloading() { return reloading; }
 
     public void debug(String message) {
         if (configManager.isDebug()) {
@@ -199,4 +250,7 @@ public final class SLBossSpawner extends JavaPlugin {
     public BossStateManager getBossStateManager() { return bossStateManager; }
     public PendingRewardManager getPendingRewardManager() { return pendingRewardManager; }
     public RewardManager getRewardManager() { return rewardManager; }
+    public DatabaseManager getDatabaseManager() { return databaseManager; }
+    public StatisticsManager getStatisticsManager() { return statisticsManager; }
+    public LeaderboardCache getLeaderboardCache() { return leaderboardCache; }
 }

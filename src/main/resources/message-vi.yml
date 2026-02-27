@@ -67,5 +67,35 @@ pickup-denied: "&#FF6B6B&lKhông thể nhặt! Vật phẩm này thuộc về ng
 # Phần thưởng chờ
 pending-rewards-delivered: "&#6BCB77&lBạn đã nhận {count} phần thưởng đang chờ!"
 
+# Lệnh thống kê
+help-stats: "  &#FFD93D/slboss stats &#8B8B8B[người chơi] &#8B8B8B- &#FFFFFFXem thống kê người chơi"
+help-top: "  &#FFD93D/slboss top &#8B8B8B<chỉ số> [kỳ] [boss] &#8B8B8B- &#FFFFFFBảng xếp hạng"
+
+stats-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lThống Kê: {player_name} &#FF6B6B&l━━━━━━"
+stats-damage: "  &#FF6B6B⚔ Sát thương: &#FFFFFF{value}"
+stats-kills: "  &#FF6B6B☠ Hạ gục: &#FFFFFF{value}"
+stats-participations: "  &#FFD93D⚑ Tham gia: &#FFFFFF{value}"
+stats-tank: "  &#4D96FF🛡 Chịu đòn: &#FFFFFF{value}"
+stats-support: "  &#6BCB77♥ Điểm hỗ trợ: &#FFFFFF{value}"
+stats-top1: "  &#FFD93D🥇 Top 1 sát thương: &#FFFFFF{value}"
+stats-top2: "  &#C0C0C0🥈 Top 2 sát thương: &#FFFFFF{value}"
+stats-top3: "  &#CD7F32🥉 Top 3 sát thương: &#FFFFFF{value}"
+stats-top1tank: "  &#4D96FF🏆 Top 1 chịu đòn: &#FFFFFF{value}"
+stats-top1support: "  &#6BCB77🏆 Top 1 hỗ trợ: &#FFFFFF{value}"
+stats-bestdamage: "  &#FF6B6B⚡ Sát thương cao nhất: &#FFFFFF{value}"
+stats-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+stats-no-data: "&#FFD93DKhông tìm thấy thống kê cho người chơi này."
+stats-disabled: "&#FF6B6BHệ thống thống kê đã tắt."
+stats-player-not-found: "&#FF6B6BKhông tìm thấy người chơi &#FFFFFF{player_name}&#FF6B6B."
+stats-console-requires-player: "&#FF6B6BConsole phải chỉ định tên người chơi."
+
+top-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lTop {metric} &#8B8B8B({period}) &#FF6B6B&l━━━━━━"
+top-entry: "  &#FFD93D#{rank} &#FFFFFF{player_name} &#8B8B8B- &#FF6B6B{value}"
+top-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+top-usage: "&#FFD93DCách dùng: /slboss top <chỉ số> [kỳ] [boss]"
+top-invalid-metric: "&#FF6B6BChỉ số không hợp lệ: &#FFFFFF{metric}&#FF6B6B. Hợp lệ: damage, kills, participations, tank, support, top1, top2, top3, top1tank, top1support, bestdamage"
+top-invalid-period: "&#FF6B6BKỳ không hợp lệ: &#FFFFFF{period}&#FF6B6B. Hợp lệ: alltime, daily, weekly, monthly, quarterly, seasonal, yearly"
+top-no-data: "&#FFD93DKhông có dữ liệu bảng xếp hạng."
+
 # Đơn vị thời gian
 time-unit-minutes: " phút"

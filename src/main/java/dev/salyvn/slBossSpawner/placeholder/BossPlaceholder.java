@@ -3,16 +3,22 @@ package dev.salyvn.slBossSpawner.placeholder;
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossInstance;
 import dev.salyvn.slBossSpawner.boss.BossScheduler;
+import dev.salyvn.slBossSpawner.database.LeaderboardRow;
+import dev.salyvn.slBossSpawner.statistics.LeaderboardCache;
 import dev.salyvn.slBossSpawner.utils.TimeUtils;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+
 public class BossPlaceholder extends PlaceholderExpansion {
     private final SLBossSpawner plugin;
+    private final LeaderboardCache leaderboardCache;
 
-    public BossPlaceholder(SLBossSpawner plugin) {
+    public BossPlaceholder(SLBossSpawner plugin, LeaderboardCache leaderboardCache) {
         this.plugin = plugin;
+        this.leaderboardCache = leaderboardCache;
     }
 
     @Override
@@ -37,9 +43,21 @@ public class BossPlaceholder extends PlaceholderExpansion {
 
     @Override
     public String onRequest(OfflinePlayer player, @NotNull String params) {
+        // Handle leaderboard/stats placeholders with underscore separator
+        // %slbs_top_<metric>_<rank>_<name|value>%
+        // %slbs_stats_<metric>%
+        // %slbs_stats_<metric>_<period>%
+        // %slbs_stats_<metric>_<period>_<boss>%
+        if (params.startsWith("top_")) {
+            return handleTopPlaceholder(params.substring(4));
+        }
+        if (params.startsWith("stats_") && player != null) {
+            return handleStatsPlaceholder(player, params.substring(6));
+        }
+
+        // Existing boss placeholders use dot separator
         BossScheduler scheduler = plugin.getBossScheduler();
 
-        // Use dot separator to support boss IDs with underscores
         String[] parts = params.split("\\.", 2);
         if (parts.length < 2) {
             if (params.equalsIgnoreCase("count")) {
@@ -74,5 +92,98 @@ public class BossPlaceholder extends PlaceholderExpansion {
                 instance.getConfig().getMythicMobId();
             default -> null;
         };
+    }
+
+    /**
+     * %slbs_top_<metric>_<rank>_<name|value>%
+     * Reads from cache: ALL_TIME / all / __global__
+     */
+    private String handleTopPlaceholder(String remainder) {
+        if (leaderboardCache == null) return "---";
+
+        // remainder: damage_1_name  OR  damage_1_value
+        String[] parts = remainder.split("_");
+        if (parts.length < 3) return null;
+
+        String metric = parts[0];
+        int rank;
+        try {
+            rank = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        String field = parts[2]; // "name" or "value"
+
+        List<LeaderboardRow> rows = leaderboardCache.getTopPlayers(
+                metric, "ALL_TIME", "all", "__global__");
+
+        if (rank < 1 || rank > rows.size()) return "---";
+
+        LeaderboardRow row = rows.get(rank - 1);
+        return switch (field.toLowerCase()) {
+            case "name" -> row.playerName();
+            case "value" -> formatDouble(row.value());
+            default -> null;
+        };
+    }
+
+    /**
+     * %slbs_stats_<metric>%                     → ALL_TIME / all / __global__
+     * %slbs_stats_<metric>_<period>%             → period / key / __global__
+     * %slbs_stats_<metric>_<period>_<boss>%      → period / key / boss
+     * Searches cache top-N for the requesting player. Returns "0" if not found.
+     */
+    private String handleStatsPlaceholder(OfflinePlayer player, String remainder) {
+        if (leaderboardCache == null) return "0";
+
+        String[] parts = remainder.split("_");
+        if (parts.length < 1) return null;
+
+        String metric = parts[0];
+        String periodType = "ALL_TIME";
+        String periodKey = "all";
+        String bossId = "__global__";
+
+        if (parts.length >= 2) {
+            String periodAlias = parts[1].toLowerCase();
+            String[] resolved = resolvePeriod(periodAlias);
+            if (resolved == null) return null;
+            periodType = resolved[0];
+            periodKey = resolved[1];
+        }
+        if (parts.length >= 3) {
+            bossId = parts[2];
+        }
+
+        List<LeaderboardRow> rows = leaderboardCache.getTopPlayers(metric, periodType, periodKey, bossId);
+        String uuid = player.getUniqueId().toString();
+
+        for (LeaderboardRow row : rows) {
+            if (row.playerUuid().equals(uuid)) {
+                return formatDouble(row.value());
+            }
+        }
+        return "0";
+    }
+
+    /**
+     * Resolve period alias to [periodType, periodKey]. Returns null if invalid.
+     */
+    private String[] resolvePeriod(String alias) {
+        return switch (alias) {
+            case "alltime" -> new String[]{"ALL_TIME", "all"};
+            case "daily" -> {
+                String key = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+                yield new String[]{"DAILY", key};
+            }
+            default -> null; // Only ALL_TIME and DAILY are cached by default
+        };
+    }
+
+    private String formatDouble(double value) {
+        if (value == (long) value) {
+            return String.valueOf((long) value);
+        }
+        return String.format("%.1f", value);
     }
 }

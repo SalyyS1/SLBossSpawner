@@ -8,13 +8,23 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
+/**
+ * Manages all boss instances and their spawn scheduling.
+ *
+ * H10 FIX: Maintains an entityIndex (entityUUID -> BossInstance) so
+ * findByEntityUuid() is O(1) instead of O(n) linear scan.
+ */
 public class BossScheduler {
     private final SLBossSpawner plugin;
     private final ScheduleManager scheduleManager;
     private BukkitTask checkTask;
     private final Map<String, BossInstance> bossInstances = new HashMap<>();
     private final Map<String, SpawnWarningTask> warningTasks = new HashMap<>();
+
+    // H10: direct entity UUID -> instance index
+    private final Map<UUID, BossInstance> entityIndex = new HashMap<>();
 
     public BossScheduler(SLBossSpawner plugin, ScheduleManager scheduleManager) {
         this.plugin = plugin;
@@ -24,9 +34,9 @@ public class BossScheduler {
 
     private void initializeBosses() {
         bossInstances.clear();
+        entityIndex.clear();
 
-        Map<String, BossConfig> configs = scheduleManager.getAllBossConfigs();
-        for (Map.Entry<String, BossConfig> entry : configs.entrySet()) {
+        for (Map.Entry<String, BossConfig> entry : scheduleManager.getAllBossConfigs().entrySet()) {
             BossInstance instance = new BossInstance(plugin, entry.getValue());
             instance.calculateNextSpawn();
             bossInstances.put(entry.getKey(), instance);
@@ -35,11 +45,9 @@ public class BossScheduler {
 
     public void start() {
         stop();
-
         for (BossInstance instance : bossInstances.values()) {
             instance.calculateNextSpawn();
         }
-
         checkTask = Bukkit.getScheduler().runTaskTimer(plugin, this::checkSpawns, 20L, 20L);
     }
 
@@ -48,15 +56,9 @@ public class BossScheduler {
             checkTask.cancel();
             checkTask = null;
         }
-
-        for (SpawnWarningTask task : warningTasks.values()) {
-            task.stop();
-        }
+        for (SpawnWarningTask task : warningTasks.values()) task.stop();
         warningTasks.clear();
-
-        for (BossInstance instance : bossInstances.values()) {
-            instance.stop();
-        }
+        for (BossInstance instance : bossInstances.values()) instance.stop();
     }
 
     private void checkSpawns() {
@@ -65,39 +67,52 @@ public class BossScheduler {
             BossInstance instance = entry.getValue();
             BossConfig config = instance.getConfig();
 
-            // Check if we need to start spawn warnings
+            // Start warning task if within max warning interval
             if (!instance.isAlive() && instance.getSecondsUntilNext() > 0) {
                 long secondsUntilSpawn = instance.getSecondsUntilNext();
                 SpawnWarningTask warningTask = warningTasks.get(bossId);
 
-                // Start warning task if not running and within max warning interval
                 if (warningTask == null || !warningTask.isRunning()) {
                     int maxInterval = config.getSpawnWarningIntervals().stream()
-                        .mapToInt(Integer::intValue).max().orElse(30);
+                            .mapToInt(Integer::intValue).max().orElse(30);
                     long maxWarningSeconds = maxInterval * 60L;
 
                     if (secondsUntilSpawn <= maxWarningSeconds && secondsUntilSpawn > 0) {
                         SpawnWarningTask newTask = new SpawnWarningTask(
-                            plugin, plugin.getBroadcastManager(), config);
+                                plugin, plugin.getBroadcastManager(), config);
                         newTask.start(secondsUntilSpawn);
                         warningTasks.put(bossId, newTask);
                     }
                 }
             }
 
-            // Check if boss should spawn
             if (instance.shouldSpawn()) {
-                // Stop warning for this boss
                 SpawnWarningTask warningTask = warningTasks.remove(bossId);
-                if (warningTask != null) {
-                    warningTask.stop();
-                }
-
+                if (warningTask != null) warningTask.stop();
                 instance.spawn();
                 instance.calculateNextSpawn();
             }
         }
     }
+
+    // --- H10: entity index management ---
+
+    /** Called by BossInstance.spawn() and BossInstance.restore() after entity is known. */
+    public void registerEntity(UUID entityUuid, BossInstance instance) {
+        entityIndex.put(entityUuid, instance);
+    }
+
+    /** Called by BossInstance.cleanup() before entityUuid is nulled. */
+    public void unregisterEntity(UUID entityUuid) {
+        entityIndex.remove(entityUuid);
+    }
+
+    /** O(1) lookup — replaces former O(n) linear scan. */
+    public BossInstance findByEntityUuid(UUID uuid) {
+        return entityIndex.get(uuid);
+    }
+
+    // --- Public API ---
 
     public void forceSpawn(String bossId) {
         BossInstance instance = bossInstances.get(bossId);
@@ -122,15 +137,11 @@ public class BossScheduler {
 
     public void despawn(String bossId) {
         BossInstance instance = bossInstances.get(bossId);
-        if (instance != null) {
-            instance.despawn();
-        }
+        if (instance != null) instance.despawn();
     }
 
     public void despawnAll() {
-        for (BossInstance instance : bossInstances.values()) {
-            instance.despawn();
-        }
+        for (BossInstance instance : bossInstances.values()) instance.despawn();
     }
 
     public Map<String, BossInstance> getAllBossInstances() {
@@ -139,18 +150,6 @@ public class BossScheduler {
 
     public BossInstance getBossInstance(String bossId) {
         return bossInstances.get(bossId);
-    }
-
-    /**
-     * Find a BossInstance by entity UUID (used by death listener).
-     */
-    public BossInstance findByEntityUuid(java.util.UUID uuid) {
-        for (BossInstance instance : bossInstances.values()) {
-            if (uuid.equals(instance.getEntityUuid())) {
-                return instance;
-            }
-        }
-        return null;
     }
 
     public boolean hasBoss(String bossId) {

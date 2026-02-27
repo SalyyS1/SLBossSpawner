@@ -6,3 +6,30 @@ debug: false
 # Language: "en" (English) or "vi" (Vietnamese)
 # Uses message.yml for "en", message-vi.yml for "vi"
 language: vi
+
+# Statistics & Leaderboard System
+statistics:
+  # Enable the statistics tracking system
+  enabled: true
+
+  database:
+    # Database type: "sqlite" (default) or "mysql"
+    type: sqlite
+    # Table prefix for all statistics tables
+    table-prefix: slbs_
+
+    # MySQL settings (only used when type is "mysql")
+    mysql:
+      host: localhost
+      port: 3306
+      database: minecraft
+      username: root
+      password: ""
+      # Connection pool size (recommended: 5-10)
+      pool-size: 5
+
+  cache:
+    # How often to refresh leaderboard cache (seconds)
+    refresh-seconds: 60
+    # Maximum entries per leaderboard
+    leaderboard-size: 100

@@ -67,5 +67,35 @@ pickup-denied: "&#FF6B6B&lCannot pick up! This item belongs to another player"
 # Pending rewards
 pending-rewards-delivered: "&#6BCB77&lYou received {count} pending reward(s)!"
 
+# Stats command
+help-stats: "  &#FFD93D/slboss stats &#8B8B8B[player] &#8B8B8B- &#FFFFFFView player statistics"
+help-top: "  &#FFD93D/slboss top &#8B8B8B<metric> [period] [boss] &#8B8B8B- &#FFFFFFLeaderboard"
+
+stats-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lStatistics: {player_name} &#FF6B6B&l━━━━━━"
+stats-damage: "  &#FF6B6B⚔ Damage: &#FFFFFF{value}"
+stats-kills: "  &#FF6B6B☠ Kills: &#FFFFFF{value}"
+stats-participations: "  &#FFD93D⚑ Participations: &#FFFFFF{value}"
+stats-tank: "  &#4D96FF🛡 Damage Taken: &#FFFFFF{value}"
+stats-support: "  &#6BCB77♥ Support Score: &#FFFFFF{value}"
+stats-top1: "  &#FFD93D🥇 Top 1 Damage: &#FFFFFF{value}"
+stats-top2: "  &#C0C0C0🥈 Top 2 Damage: &#FFFFFF{value}"
+stats-top3: "  &#CD7F32🥉 Top 3 Damage: &#FFFFFF{value}"
+stats-top1tank: "  &#4D96FF🏆 Top 1 Tank: &#FFFFFF{value}"
+stats-top1support: "  &#6BCB77🏆 Top 1 Support: &#FFFFFF{value}"
+stats-bestdamage: "  &#FF6B6B⚡ Best Damage: &#FFFFFF{value}"
+stats-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+stats-no-data: "&#FFD93DNo statistics found for this player."
+stats-disabled: "&#FF6B6BStatistics system is disabled."
+stats-player-not-found: "&#FF6B6BPlayer &#FFFFFF{player_name} &#FF6B6Bnot found."
+stats-console-requires-player: "&#FF6B6BConsole must specify a player name."
+
+top-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lTop {metric} &#8B8B8B({period}) &#FF6B6B&l━━━━━━"
+top-entry: "  &#FFD93D#{rank} &#FFFFFF{player_name} &#8B8B8B- &#FF6B6B{value}"
+top-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+top-usage: "&#FFD93DUsage: /slboss top <metric> [period] [boss]"
+top-invalid-metric: "&#FF6B6BInvalid metric: &#FFFFFF{metric}&#FF6B6B. Valid: damage, kills, participations, tank, support, top1, top2, top3, top1tank, top1support, bestdamage"
+top-invalid-period: "&#FF6B6BInvalid period: &#FFFFFF{period}&#FF6B6B. Valid: alltime, daily, weekly, monthly, quarterly, seasonal, yearly"
+top-no-data: "&#FFD93DNo leaderboard data found."
+
 # Time units
 time-unit-minutes: " min"

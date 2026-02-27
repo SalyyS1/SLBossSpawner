@@ -20,7 +20,9 @@ public class MessageManager {
     private static final Set<String> NO_PREFIX_KEYS = Set.of(
         "help-header", "help-footer", "help-usage",
         "info-header", "info-footer",
-        "list-header", "list-footer", "ranking-header", "ranking-footer"
+        "list-header", "list-footer", "ranking-header", "ranking-footer",
+        "stats-header", "stats-footer",
+        "top-header", "top-footer"
     );
 
     public MessageManager(SLBossSpawner plugin) {

@@ -4,31 +4,33 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Immutable snapshot of support (debuff effects) data for a boss at time of death.
+ * Immutable snapshot of support (harmful-effect) data for a boss at time of death.
  */
 public record SupportResult(
-    List<PlayerSupportEntry> rankings, // sorted desc by supportScore
+    List<PlayerSupportEntry> rankings,
     double totalSupportScore
-) {
-    public List<PlayerSupportEntry> getTopSupports(int n) {
+) implements TrackingResult<SupportResult.PlayerSupportEntry> {
+
+    @Override
+    public double totalValue() { return totalSupportScore; }
+
+    @Override
+    public List<PlayerSupportEntry> getTop(int n) {
         return rankings.subList(0, Math.min(n, rankings.size()));
     }
 
     public int getRank(UUID playerUuid) {
-        for (int i = 0; i < rankings.size(); i++) {
-            if (rankings.get(i).playerUuid().equals(playerUuid)) {
-                return i + 1;
-            }
-        }
-        return -1;
+        return getRank(playerUuid, PlayerSupportEntry::playerUuid);
+    }
+
+    /** Kept for backward compatibility with existing callers. */
+    public List<PlayerSupportEntry> getTopSupports(int n) {
+        return getTop(n);
     }
 
     public static SupportResult empty() {
         return new SupportResult(List.of(), 0);
     }
 
-    /**
-     * Entry for a single player's cumulative support score.
-     */
     public record PlayerSupportEntry(UUID playerUuid, String playerName, double supportScore) {}
 }

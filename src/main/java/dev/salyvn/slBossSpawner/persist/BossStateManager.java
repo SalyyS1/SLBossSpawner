@@ -3,6 +3,7 @@ package dev.salyvn.slBossSpawner.persist;
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossInstance;
 import dev.salyvn.slBossSpawner.boss.BossScheduler;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -12,7 +13,11 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Saves/loads alive boss state to boss-state.yml for server restart survival.
+ * Saves/loads alive boss state to boss-state.yml for server-restart survival.
+ *
+ * H11 FIX: saveSingle() and remove() snapshot the YAML on the main thread then
+ * write the file on an async thread, avoiding I/O stalls on the tick loop.
+ * saveSync() is kept for shutdown where async would race with process exit.
  */
 public class BossStateManager {
     private final SLBossSpawner plugin;
@@ -23,9 +28,7 @@ public class BossStateManager {
         this.stateFile = new File(plugin.getDataFolder(), "boss-state.yml");
     }
 
-    /**
-     * Save all currently alive bosses to file.
-     */
+    /** Save all currently alive bosses — always called synchronously (shutdown / reload). */
     public void saveAll() {
         BossScheduler scheduler = plugin.getBossScheduler();
         YamlConfiguration yaml = new YamlConfiguration();
@@ -41,21 +44,18 @@ public class BossStateManager {
             yaml.set(bossId + ".boss-config-id", bossId);
         }
 
-        try {
-            yaml.save(stateFile);
-            plugin.debug("Saved boss state to " + stateFile.getName());
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save boss state: " + e.getMessage());
-        }
+        writeSync(yaml);
     }
 
     /**
-     * Save a single boss entry.
+     * H11: Save a single boss entry.
+     * Snapshot on main thread, write file async.
      */
     public void saveSingle(BossInstance instance) {
+        // Read existing YAML on main thread to build the snapshot
         YamlConfiguration yaml = stateFile.exists()
-            ? YamlConfiguration.loadConfiguration(stateFile)
-            : new YamlConfiguration();
+                ? YamlConfiguration.loadConfiguration(stateFile)
+                : new YamlConfiguration();
 
         String bossId = instance.getConfig().getId();
         if (instance.isAlive() && instance.getEntityUuid() != null) {
@@ -65,15 +65,13 @@ public class BossStateManager {
             yaml.set(bossId + ".boss-config-id", bossId);
         }
 
-        try {
-            yaml.save(stateFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save boss state for " + bossId + ": " + e.getMessage());
-        }
+        // Write off the main thread
+        writeAsync(yaml, "save boss state for " + bossId);
     }
 
     /**
-     * Remove a boss entry from state file.
+     * H11: Remove a boss entry from the state file.
+     * Snapshot on main thread, write file async.
      */
     public void remove(String bossId) {
         if (!stateFile.exists()) return;
@@ -81,16 +79,15 @@ public class BossStateManager {
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(stateFile);
         yaml.set(bossId, null);
 
-        try {
-            yaml.save(stateFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to remove boss state for " + bossId + ": " + e.getMessage());
-        }
+        writeAsync(yaml, "remove boss state for " + bossId);
     }
 
-    /**
-     * Restore bosses from state file after server restart.
-     */
+    /** Synchronous save used at shutdown to prevent async/process-exit race. */
+    public void saveSync() {
+        saveAll();
+    }
+
+    /** Restore bosses from state file after server restart. */
     public void restoreFromState(BossScheduler scheduler) {
         if (!stateFile.exists()) return;
 
@@ -111,14 +108,14 @@ public class BossStateManager {
 
             BossInstance instance = scheduler.getBossInstance(bossId);
             if (instance == null) {
-                plugin.getLogger().warning("Boss '" + bossId + "' in state file not found in schedules, skipping");
+                plugin.getLogger().warning("Boss '" + bossId
+                        + "' in state file not found in schedules, skipping");
                 continue;
             }
 
             String uuidStr = section.getString("entity-uuid");
             long spawnTime = section.getLong("spawn-time", 0);
             long expireTime = section.getLong("expire-time", 0);
-
             if (uuidStr == null || spawnTime == 0 || expireTime == 0) continue;
 
             UUID entityUuid;
@@ -136,19 +133,39 @@ public class BossStateManager {
             }
         }
 
-        plugin.getLogger().info("Boss state restore: " + restored + " restored, " + expired + " expired/missing");
+        plugin.getLogger().info("Boss state restore: " + restored
+                + " restored, " + expired + " expired/missing");
 
-        // Clear stale file and re-save only active bosses
         clear();
         saveAll();
     }
 
-    /**
-     * Delete the state file.
-     */
     public void clear() {
-        if (stateFile.exists()) {
-            stateFile.delete();
+        if (stateFile.exists()) stateFile.delete();
+    }
+
+    // --- Private helpers ---
+
+    private void writeSync(YamlConfiguration yaml) {
+        try {
+            yaml.save(stateFile);
+            plugin.debug("Saved boss state to " + stateFile.getName());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save boss state: " + e.getMessage());
         }
+    }
+
+    private void writeAsync(YamlConfiguration yaml, String context) {
+        // Serialise to string on calling (main) thread before handing off
+        String yamlString = yaml.saveToString();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                if (!stateFile.getParentFile().exists()) stateFile.getParentFile().mkdirs();
+                java.nio.file.Files.writeString(stateFile.toPath(), yamlString);
+            } catch (IOException e) {
+                plugin.getLogger().severe("Failed to async-write boss state (" + context + "): "
+                        + e.getMessage());
+            }
+        });
     }
 }

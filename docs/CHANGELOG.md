@@ -2,6 +2,51 @@
 
 All notable changes to FluffyBossSpawner will be documented in this file.
 
+## [3.0.0] - 2026-02-27
+
+### Added
+
+#### Statistics & Database System (Phase 2-3)
+- **SQLite/MySQL database** for persistent player statistics across server restarts
+- **7 period types**: daily, weekly, monthly, quarterly, seasonal, yearly, all-time
+- **11 tracked metrics**: damage, kills, participations, tank, support, top1-3, top1tank, top1support, bestdamage
+- **Per-boss + global** stat aggregation — every boss kill records both per-boss and `__global__` stats
+- **Automatic period archival** — hourly scheduler detects period rollovers and archives old data
+- **Season resolver** — calendar quarter-based seasons (S1-S4)
+- **Configurable** via `statistics.*` section in config.yml (database type, MySQL connection, table prefix)
+
+#### Leaderboard & Commands (Phase 4)
+- **`/slboss stats [player]`** — view a player's all-time statistics (12 stat fields)
+- **`/slboss top <metric> [period] [boss]`** — view leaderboard with tab completion for all arguments
+- **LeaderboardCache** — async in-memory cache refreshed every 60s (configurable), thread-safe reads
+- **PlaceholderAPI expansions**:
+  - `%slbs_top_<metric>_<rank>_<name|value>%` — leaderboard rank data
+  - `%slbs_stats_<metric>%` — player's own stat from cache
+  - `%slbs_stats_<metric>_<period>%` — player stat for specific period
+- **New permissions**: `slboss.stats` (default: true), `slboss.top` (default: true)
+- **Vietnamese translations** for all new message keys
+
+#### Code Architecture Improvements (Phase 1)
+- **AbstractBossTracker** — extracted common tracking logic (start/stop/cleanup, result building)
+- **TrackingResult** — generic result record with ranking + percentage calculation
+- **CommandValidator** — centralized shell metacharacter validation
+- **ItemFactory** — extracted item creation logic from RewardManager
+- **Modularized RewardManager** — split 400+ LOC monolith into focused utilities
+
+### Bug Fixes (Phase 1)
+- **H3**: Added reload-safe flag to suppress death-event processing during `/slboss reload`
+- **H4**: Delayed state restore by 2 ticks to ensure worlds are fully loaded
+- **M8**: Only send spawn success message if boss actually spawned
+- Fixed thread safety of `bossScheduler` reference with volatile field
+
+### Technical
+- Java 21+ / Paper 1.21+ required
+- SQLite (default) or MySQL 5.7+ for statistics storage
+- HikariCP connection pooling for MySQL
+- ConcurrentHashMap-based leaderboard cache with atomic list replacement
+
+---
+
 ## [2.0.1] - 2026-02-11
 
 ### Security

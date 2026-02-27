@@ -4,7 +4,6 @@ import dev.salyvn.slBossSpawner.SLBossSpawner;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
 import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.PotionSplashEvent;
@@ -15,175 +14,156 @@ import java.util.stream.Collectors;
 
 /**
  * Tracks harmful potion/debuff effects applied to boss entities by players.
- * Score formula: (amplifier + 1) * (durationTicks / 20.0)
  *
- * Attribution: EntityPotionEffectEvent doesn't tell who caused the effect,
- * so we track splash/lingering potion throwers via PotionSplashEvent and
- * AreaEffectCloudApplyEvent, maintaining a short-lived attribution cache.
+ * Fixes applied:
+ * H1 - attributionCache is now per-cloud per-boss (Map<bossUUID, Map<cloudUUID, entry>>)
+ *      so multiple simultaneous lingering clouds don't overwrite each other.
+ * H2 - ATTRIBUTION_EXPIRY_TICKS raised from 5 to 40 (2 seconds) to survive event ordering lag.
+ * M1 - HARMFUL_EFFECTS built with try-catch for 1.21+ constants so it compiles on older servers.
  */
-public class SupportTracker implements Listener {
-    private final SLBossSpawner plugin;
+public class SupportTracker extends AbstractBossTracker<SupportResult.PlayerSupportEntry> {
 
-    // Boss entity UUID -> player UUID -> cumulative support score
-    private final Map<UUID, Map<UUID, Double>> supportMap = new HashMap<>();
-    // Boss entity UUID -> player name cache
-    private final Map<UUID, Map<UUID, String>> nameCache = new HashMap<>();
-    // Set of tracked boss entity UUIDs
-    private final Set<UUID> trackedBosses = new HashSet<>();
+    // H1 FIX: boss UUID -> (cloud/potion UUID -> attribution entry)
+    private final Map<UUID, Map<UUID, AttributionEntry>> attributionCache = new HashMap<>();
 
-    // Attribution cache: boss entity UUID -> (player UUID, timestamp tick)
-    // Tracks who last threw a potion at each boss (expires after 5 ticks)
-    private final Map<UUID, AttributionEntry> attributionCache = new HashMap<>();
+    // H2 FIX: raised from 5 to 40 ticks (~2 seconds)
+    private static final long ATTRIBUTION_EXPIRY_TICKS = 40;
 
-    private static final long ATTRIBUTION_EXPIRY_TICKS = 5;
-
-    private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
-            PotionEffectType.SLOWNESS,
-            PotionEffectType.MINING_FATIGUE,
-            PotionEffectType.INSTANT_DAMAGE,
-            PotionEffectType.NAUSEA,
-            PotionEffectType.BLINDNESS,
-            PotionEffectType.HUNGER,
-            PotionEffectType.WEAKNESS,
-            PotionEffectType.POISON,
-            PotionEffectType.WITHER,
-            PotionEffectType.LEVITATION,
-            PotionEffectType.UNLUCK,
-            PotionEffectType.DARKNESS,
-            PotionEffectType.INFESTED,
-            PotionEffectType.OOZING,
-            PotionEffectType.WEAVING,
-            PotionEffectType.WIND_CHARGED);
+    // M1 FIX: version-safe set — 1.21+ fields wrapped in try-catch
+    private static final Set<PotionEffectType> HARMFUL_EFFECTS;
+    static {
+        Set<PotionEffectType> effects = new HashSet<>();
+        effects.add(PotionEffectType.SLOWNESS);
+        effects.add(PotionEffectType.MINING_FATIGUE);
+        effects.add(PotionEffectType.INSTANT_DAMAGE);
+        effects.add(PotionEffectType.NAUSEA);
+        effects.add(PotionEffectType.BLINDNESS);
+        effects.add(PotionEffectType.HUNGER);
+        effects.add(PotionEffectType.WEAKNESS);
+        effects.add(PotionEffectType.POISON);
+        effects.add(PotionEffectType.WITHER);
+        effects.add(PotionEffectType.LEVITATION);
+        effects.add(PotionEffectType.UNLUCK);
+        effects.add(PotionEffectType.DARKNESS);
+        // 1.21+ constants — silently ignored on older server versions
+        for (String name : List.of("INFESTED", "OOZING", "WEAVING", "WIND_CHARGED")) {
+            try {
+                effects.add((PotionEffectType) PotionEffectType.class.getField(name).get(null));
+            } catch (NoSuchFieldException | IllegalAccessException ignored) {}
+        }
+        HARMFUL_EFFECTS = Collections.unmodifiableSet(effects);
+    }
 
     public SupportTracker(SLBossSpawner plugin) {
-        this.plugin = plugin;
+        super(plugin);
     }
 
-    public void startTracking(UUID bossEntityUuid) {
-        trackedBosses.add(bossEntityUuid);
-        supportMap.put(bossEntityUuid, new HashMap<>());
-        nameCache.put(bossEntityUuid, new HashMap<>());
-        plugin.debug("Started support tracking for boss entity: " + bossEntityUuid);
-    }
+    @Override
+    protected String getTrackerName() { return "support"; }
 
-    public void stopTracking(UUID bossEntityUuid) {
-        trackedBosses.remove(bossEntityUuid);
-        supportMap.remove(bossEntityUuid);
-        nameCache.remove(bossEntityUuid);
+    @Override
+    protected void onStopTracking(UUID bossEntityUuid) {
         attributionCache.remove(bossEntityUuid);
     }
 
-    public boolean isTracking(UUID bossEntityUuid) {
-        return trackedBosses.contains(bossEntityUuid);
+    @Override
+    protected void onClearAll() {
+        attributionCache.clear();
     }
 
-    /**
-     * Track splash potion hits on boss — records who threw it for attribution.
-     */
+    /** Record who threw a splash potion that hit the boss. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPotionSplash(PotionSplashEvent event) {
-        if (!(event.getPotion().getShooter() instanceof Player player))
-            return;
+        if (!(event.getPotion().getShooter() instanceof Player player)) return;
 
         for (LivingEntity affected : event.getAffectedEntities()) {
             UUID entityUuid = affected.getUniqueId();
-            if (trackedBosses.contains(entityUuid)) {
-                long currentTick = affected.getWorld().getGameTime();
-                attributionCache.put(entityUuid,
-                        new AttributionEntry(player.getUniqueId(), player.getName(), currentTick));
-                plugin.debug("Attribution: " + player.getName() + " splashed potion on boss " + entityUuid);
-            }
+            if (!trackedBosses.contains(entityUuid)) continue;
+
+            long tick = affected.getWorld().getGameTime();
+            // H1: use potion entity UUID as the cloud key for splash potions
+            UUID potionUuid = event.getPotion().getUniqueId();
+            attributionCache.computeIfAbsent(entityUuid, k -> new HashMap<>())
+                    .put(potionUuid, new AttributionEntry(player.getUniqueId(), player.getName(), tick));
+            plugin.debug("Attribution: " + player.getName() + " splashed potion on boss " + entityUuid);
         }
     }
 
-    /**
-     * Track lingering potion cloud applications on boss.
-     */
+    /** Record who owns a lingering cloud that ticked on the boss. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAreaEffectCloudApply(AreaEffectCloudApplyEvent event) {
         AreaEffectCloud cloud = event.getEntity();
-        if (!(cloud.getSource() instanceof Player player))
-            return;
+        if (!(cloud.getSource() instanceof Player player)) return;
 
         for (LivingEntity affected : event.getAffectedEntities()) {
             UUID entityUuid = affected.getUniqueId();
-            if (trackedBosses.contains(entityUuid)) {
-                long currentTick = affected.getWorld().getGameTime();
-                attributionCache.put(entityUuid,
-                        new AttributionEntry(player.getUniqueId(), player.getName(), currentTick));
-            }
+            if (!trackedBosses.contains(entityUuid)) continue;
+
+            long tick = affected.getWorld().getGameTime();
+            // H1: use cloud UUID so multiple clouds don't collide
+            attributionCache.computeIfAbsent(entityUuid, k -> new HashMap<>())
+                    .put(cloud.getUniqueId(), new AttributionEntry(player.getUniqueId(), player.getName(), tick));
         }
     }
 
-    /**
-     * Track when a harmful potion effect is applied/changed on a tracked boss.
-     */
+    /** Score harmful effects applied to the boss and credit the most-recent attributed player. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPotionEffect(EntityPotionEffectEvent event) {
         UUID bossUuid = event.getEntity().getUniqueId();
-        if (!trackedBosses.contains(bossUuid))
-            return;
+        if (!trackedBosses.contains(bossUuid)) return;
 
-        // Only count new effects or amplified/extended effects
         EntityPotionEffectEvent.Action action = event.getAction();
         if (action != EntityPotionEffectEvent.Action.ADDED
-                && action != EntityPotionEffectEvent.Action.CHANGED)
-            return;
+                && action != EntityPotionEffectEvent.Action.CHANGED) return;
 
-        // Only count harmful effects
-        if (event.getNewEffect() == null)
-            return;
+        if (event.getNewEffect() == null) return;
         PotionEffectType effectType = event.getNewEffect().getType();
-        if (!HARMFUL_EFFECTS.contains(effectType))
-            return;
+        if (!HARMFUL_EFFECTS.contains(effectType)) return;
 
-        // Look up attribution — who caused this effect?
-        AttributionEntry attribution = attributionCache.get(bossUuid);
-        if (attribution == null)
-            return;
+        // H1: scan all cloud-keyed entries, pick the freshest non-expired one
+        Map<UUID, AttributionEntry> cloudMap = attributionCache.get(bossUuid);
+        if (cloudMap == null || cloudMap.isEmpty()) return;
 
-        // Check if attribution is still fresh (within expiry ticks)
         long currentTick = event.getEntity().getWorld().getGameTime();
-        if (currentTick - attribution.tick() > ATTRIBUTION_EXPIRY_TICKS) {
-            attributionCache.remove(bossUuid);
-            return;
+
+        AttributionEntry best = null;
+        for (AttributionEntry attr : cloudMap.values()) {
+            if (currentTick - attr.tick() <= ATTRIBUTION_EXPIRY_TICKS) {
+                if (best == null || attr.tick() > best.tick()) {
+                    best = attr;
+                }
+            }
         }
 
-        // Calculate support score: (amplifier + 1) * (duration in seconds)
+        // Clean up expired entries
+        cloudMap.entrySet().removeIf(e -> currentTick - e.getValue().tick() > ATTRIBUTION_EXPIRY_TICKS);
+
+        if (best == null) return;
+
         int amplifier = event.getNewEffect().getAmplifier();
         int durationTicks = event.getNewEffect().getDuration();
         double score = (amplifier + 1) * (durationTicks / 20.0);
-
-        // For INSTANT_DAMAGE, use amplifier only (no duration)
         if (effectType == PotionEffectType.INSTANT_DAMAGE) {
             score = (amplifier + 1) * 10.0;
         }
 
-        UUID playerUuid = attribution.playerUuid();
-
-        supportMap.computeIfAbsent(bossUuid, k -> new HashMap<>())
-                .merge(playerUuid, score, (a, b) -> a + b);
-
+        UUID playerUuid = best.playerUuid();
+        dataMap.computeIfAbsent(bossUuid, k -> new HashMap<>())
+                .merge(playerUuid, score, Double::sum);
         nameCache.computeIfAbsent(bossUuid, k -> new HashMap<>())
-                .put(playerUuid, attribution.playerName());
+                .put(playerUuid, best.playerName());
 
         plugin.debug("Support score +" + String.format("%.1f", score) + " for "
-                + attribution.playerName() + " (" + effectType.getKey() + " on boss " + bossUuid + ")");
+                + best.playerName() + " (" + effectType.getKey() + " on boss " + bossUuid + ")");
     }
 
-    /**
-     * Build sorted SupportResult for a boss entity.
-     */
+    @Override
     public SupportResult buildResult(UUID bossEntityUuid) {
-        Map<UUID, Double> scores = supportMap.get(bossEntityUuid);
+        Map<UUID, Double> scores = dataMap.get(bossEntityUuid);
         Map<UUID, String> names = nameCache.get(bossEntityUuid);
-
-        if (scores == null || scores.isEmpty()) {
-            return SupportResult.empty();
-        }
+        if (scores == null || scores.isEmpty()) return SupportResult.empty();
 
         double totalScore = scores.values().stream().mapToDouble(Double::doubleValue).sum();
-
         List<SupportResult.PlayerSupportEntry> rankings = scores.entrySet().stream()
                 .map(e -> new SupportResult.PlayerSupportEntry(
                         e.getKey(),
@@ -195,13 +175,5 @@ public class SupportTracker implements Listener {
         return new SupportResult(rankings, totalScore);
     }
 
-    public void clearAll() {
-        trackedBosses.clear();
-        supportMap.clear();
-        nameCache.clear();
-        attributionCache.clear();
-    }
-
-    private record AttributionEntry(UUID playerUuid, String playerName, long tick) {
-    }
+    private record AttributionEntry(UUID playerUuid, String playerName, long tick) {}
 }

@@ -281,7 +281,7 @@
 <aside class="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo"><span class="sl">SL</span><span class="bs">BossSpawner</span></div>
-    <div class="sidebar-ver">v2.0.0 &mdash; MythicMobs Integration</div>
+    <div class="sidebar-ver">v3.0.0 &mdash; MythicMobs Integration</div>
   </div>
   <nav>
     <div class="nav-group" lang-en>Getting Started</div>
@@ -302,12 +302,14 @@
     <a href="#broadcast"><span class="nav-dot green"></span> <span lang-en>Broadcasts</span><span lang-vi>Thông báo</span></a>
     <a href="#item-protection"><span class="nav-dot green"></span> <span lang-en>Item Protection</span><span lang-vi>Bảo vệ vật phẩm</span></a>
     <a href="#persistence"><span class="nav-dot green"></span> <span lang-en>Persistence</span><span lang-vi>Lưu trữ</span></a>
+    <a href="#statistics"><span class="nav-dot green"></span> <span lang-en>Statistics</span><span lang-vi>Thống kê</span></a>
 
     <div class="nav-group" lang-en>Reference</div>
     <div class="nav-group" lang-vi>Tra cứu</div>
     <a href="#commands"><span class="nav-dot blue"></span> <span lang-en>Commands</span><span lang-vi>Lệnh</span></a>
     <a href="#placeholders"><span class="nav-dot blue"></span> <span lang-en>Placeholders</span><span lang-vi>Placeholders</span></a>
     <a href="#permissions"><span class="nav-dot blue"></span> <span lang-en>Permissions</span><span lang-vi>Quyền</span></a>
+    <a href="#changelog"><span class="nav-dot blue"></span> <span lang-en>Changelog</span><span lang-vi>Nhật ký</span></a>
   </nav>
 </aside>
 
@@ -685,6 +687,61 @@
 <p lang-en>Rewards for offline players are saved to <code>pending-rewards.yml</code> and automatically delivered when the player joins (2-second delay for safe loading).</p>
 <p lang-vi>Nếu người chơi offline lúc nhận thưởng, phần thưởng sẽ được lưu vào <code>pending-rewards.yml</code>. Khi họ vào lại server, hệ thống tự động trao sau 2 giây (chờ load xong cho chắc).</p>
 
+<!-- STATISTICS -->
+<h2 id="statistics"><span lang-en>Statistics & Leaderboard</span><span lang-vi>Thống kê & Bảng xếp hạng</span></h2>
+
+<div class="callout callout-info">
+  <strong lang-en>Requires database</strong><strong lang-vi>Cần cơ sở dữ liệu</strong>
+  <span lang-en>Enable in <code>config.yml → statistics.enabled: true</code>. Supports SQLite (default) and MySQL.</span>
+  <span lang-vi>Bật trong <code>config.yml → statistics.enabled: true</code>. Hỗ trợ SQLite (mặc định) và MySQL.</span>
+</div>
+
+<h3 lang-en>Tracked Metrics</h3><h3 lang-vi>Chỉ số theo dõi</h3>
+<table>
+  <thead><tr>
+    <th>Metric</th>
+    <th lang-en>Description</th><th lang-vi>Mô tả</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>damage</code></td><td lang-en>Total damage dealt</td><td lang-vi>Tổng sát thương gây ra</td></tr>
+    <tr><td><code>kills</code></td><td lang-en>Final hit kills</td><td lang-vi>Số lần hạ gục (đòn cuối)</td></tr>
+    <tr><td><code>participations</code></td><td lang-en>Boss fights participated in</td><td lang-vi>Số trận boss tham gia</td></tr>
+    <tr><td><code>tank</code></td><td lang-en>Total damage taken</td><td lang-vi>Tổng sát thương chịu</td></tr>
+    <tr><td><code>support</code></td><td lang-en>Support score (healing, buffs)</td><td lang-vi>Điểm hỗ trợ (hồi máu, buff)</td></tr>
+    <tr><td><code>top1</code></td><td lang-en>#1 damage count</td><td lang-vi>Số lần top 1 sát thương</td></tr>
+    <tr><td><code>top2</code></td><td lang-en>#2 damage count</td><td lang-vi>Số lần top 2 sát thương</td></tr>
+    <tr><td><code>top3</code></td><td lang-en>#3 damage count</td><td lang-vi>Số lần top 3 sát thương</td></tr>
+    <tr><td><code>top1tank</code></td><td lang-en>#1 tank count</td><td lang-vi>Số lần top 1 chịu đòn</td></tr>
+    <tr><td><code>top1support</code></td><td lang-en>#1 support count</td><td lang-vi>Số lần top 1 hỗ trợ</td></tr>
+    <tr><td><code>bestdamage</code></td><td lang-en>Highest single-fight damage</td><td lang-vi>Sát thương cao nhất trong 1 trận</td></tr>
+  </tbody>
+</table>
+
+<h3 lang-en>Period Types</h3><h3 lang-vi>Loại kỳ</h3>
+<p lang-en>Statistics are tracked across 7 period types: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Old periods are automatically archived.</p>
+<p lang-vi>Thống kê được theo dõi qua 7 loại kỳ: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Các kỳ cũ tự động được lưu trữ.</p>
+
+<h3 lang-en>Leaderboard Cache</h3><h3 lang-vi>Cache bảng xếp hạng</h3>
+<p lang-en>An in-memory cache refreshes every <code>cache.refresh-seconds</code> (default 60s). All placeholder reads are instant and non-blocking. Cache covers ALL_TIME and DAILY periods for all 11 metrics.</p>
+<p lang-vi>Bộ nhớ đệm được làm mới mỗi <code>cache.refresh-seconds</code> (mặc định 60 giây). Tất cả placeholder đọc từ cache, không gây lag. Cache bao gồm kỳ ALL_TIME và DAILY cho tất cả 11 chỉ số.</p>
+
+<h3 lang-en>Database Configuration</h3><h3 lang-vi>Cấu hình cơ sở dữ liệu</h3>
+<pre><code>statistics:
+  enabled: true
+  database:
+    type: sqlite          # sqlite or mysql
+    table-prefix: "slbs_"
+    mysql:
+      host: localhost
+      port: 3306
+      database: minecraft
+      username: root
+      password: ""
+      pool-size: 5
+  cache:
+    refresh-seconds: 60
+    leaderboard-size: 100</code></pre>
+
 <!-- COMMANDS -->
 <h2 id="commands"><span lang-en>Commands</span><span lang-vi>Lệnh</span></h2>
 
@@ -730,6 +787,16 @@
       <td><code>slboss.info</code></td>
       <td lang-en>List all configured bosses</td><td lang-vi>Liệt kê các Boss đã cấu hình</td>
     </tr>
+    <tr>
+      <td><code>/slboss stats [player]</code></td>
+      <td><code>slboss.stats</code></td>
+      <td lang-en>View player statistics (all-time)</td><td lang-vi>Xem thống kê người chơi (toàn thời gian)</td>
+    </tr>
+    <tr>
+      <td><code>/slboss top &lt;metric&gt; [period] [boss]</code></td>
+      <td><code>slboss.top</code></td>
+      <td lang-en>View leaderboard (tab-completable)</td><td lang-vi>Xem bảng xếp hạng (có tab-complete)</td>
+    </tr>
   </tbody>
 </table>
 
@@ -738,6 +805,8 @@
 
 <p lang-en>Requires <strong>PlaceholderAPI</strong>. Prefix: <code>%slbs_&lt;bossId&gt;.&lt;key&gt;%</code></p>
 <p lang-vi>Cần cài <strong>PlaceholderAPI</strong>. Cú pháp: <code>%slbs_&lt;bossId&gt;.&lt;key&gt;%</code></p>
+
+<h3 lang-en>Boss Placeholders</h3><h3 lang-vi>Placeholder Boss</h3>
 
 <table>
   <thead><tr>
@@ -784,6 +853,59 @@
   </tbody>
 </table>
 
+<h3 lang-en>Leaderboard Placeholders</h3><h3 lang-vi>Placeholder bảng xếp hạng</h3>
+<p lang-en>Reads from in-memory cache (non-blocking). Returns <code>---</code> if rank not available.</p>
+<p lang-vi>Đọc từ bộ nhớ đệm (không gây lag). Trả về <code>---</code> nếu hạng không có.</p>
+
+<table>
+  <thead><tr>
+    <th>Placeholder</th>
+    <th lang-en>Output</th><th lang-vi>Kết quả</th>
+    <th lang-en>Example</th><th lang-vi>Ví dụ</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>%slbs_top_damage_1_name%</code></td>
+      <td lang-en>Top 1 damage player name</td><td lang-vi>Tên người chơi top 1 sát thương</td>
+      <td><code>Steve</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_top_damage_1_value%</code></td>
+      <td lang-en>Top 1 damage value</td><td lang-vi>Giá trị sát thương top 1</td>
+      <td><code>15420</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_top_kills_3_name%</code></td>
+      <td lang-en>Top 3 kills player name</td><td lang-vi>Tên người chơi top 3 hạ gục</td>
+      <td><code>Alex</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 lang-en>Player Stats Placeholders</h3><h3 lang-vi>Placeholder thống kê người chơi</h3>
+<p lang-en>Shows requesting player's value from cache. Returns <code>0</code> if player not in top N.</p>
+<p lang-vi>Hiện giá trị của người chơi từ cache. Trả về <code>0</code> nếu không trong top N.</p>
+
+<table>
+  <thead><tr>
+    <th>Placeholder</th>
+    <th lang-en>Output</th><th lang-vi>Kết quả</th>
+    <th lang-en>Example</th><th lang-vi>Ví dụ</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td><code>%slbs_stats_damage%</code></td>
+      <td lang-en>Player's all-time damage</td><td lang-vi>Sát thương toàn thời gian</td>
+      <td><code>8500</code></td>
+    </tr>
+    <tr>
+      <td><code>%slbs_stats_kills_daily%</code></td>
+      <td lang-en>Player's daily kills</td><td lang-vi>Số hạ gục hôm nay</td>
+      <td><code>2</code></td>
+    </tr>
+  </tbody>
+</table>
+
 <!-- PERMISSIONS -->
 <h2 id="permissions"><span lang-en>Permissions</span><span lang-vi>Quyền</span></h2>
 
@@ -819,12 +941,79 @@
       <td lang-en>Reload configs</td><td lang-vi>Tải lại cấu hình</td>
       <td><code>op</code></td>
     </tr>
+    <tr>
+      <td><code>slboss.stats</code></td>
+      <td lang-en>View player statistics</td><td lang-vi>Xem thống kê người chơi</td>
+      <td><code>true</code></td>
+    </tr>
+    <tr>
+      <td><code>slboss.top</code></td>
+      <td lang-en>View leaderboard</td><td lang-vi>Xem bảng xếp hạng</td>
+      <td><code>true</code></td>
+    </tr>
   </tbody>
 </table>
 
+<!-- CHANGELOG -->
+<h2 id="changelog"><span lang-en>Changelog</span><span lang-vi>Nhật ký thay đổi</span></h2>
+
+<h3>v3.0.0 <span style="color:var(--text-muted)">(2026-02-27)</span></h3>
+<div class="callout callout-info">
+  <strong lang-en>Major Release</strong><strong lang-vi>Bản phát hành lớn</strong>
+  <span lang-en>Statistics system, leaderboard, and new commands</span>
+  <span lang-vi>Hệ thống thống kê, bảng xếp hạng, và lệnh mới</span>
+</div>
+<h4 lang-en>Added</h4><h4 lang-vi>Thêm mới</h4>
+<ul>
+  <li lang-en>SQLite/MySQL database for persistent player statistics</li>
+  <li lang-vi>Cơ sở dữ liệu SQLite/MySQL để lưu thống kê người chơi</li>
+  <li lang-en>11 tracked metrics across 7 period types (daily → all-time)</li>
+  <li lang-vi>11 chỉ số theo dõi qua 7 loại kỳ (hàng ngày → toàn thời gian)</li>
+  <li lang-en><code>/slboss stats [player]</code> — view player statistics</li>
+  <li lang-vi><code>/slboss stats [player]</code> — xem thống kê người chơi</li>
+  <li lang-en><code>/slboss top &lt;metric&gt; [period] [boss]</code> — leaderboard with tab completion</li>
+  <li lang-vi><code>/slboss top &lt;metric&gt; [period] [boss]</code> — bảng xếp hạng có tab-complete</li>
+  <li lang-en>Leaderboard &amp; stats PlaceholderAPI expansions</li>
+  <li lang-vi>Placeholder PlaceholderAPI cho bảng xếp hạng &amp; thống kê</li>
+  <li lang-en>In-memory leaderboard cache with async refresh</li>
+  <li lang-vi>Bộ nhớ đệm bảng xếp hạng với làm mới bất đồng bộ</li>
+  <li lang-en>Automatic period archival (daily, weekly, monthly, etc.)</li>
+  <li lang-vi>Tự động lưu trữ kỳ cũ (ngày, tuần, tháng, v.v.)</li>
+  <li lang-en>Code architecture improvements: AbstractBossTracker, CommandValidator, ItemFactory</li>
+  <li lang-vi>Cải thiện kiến trúc code: AbstractBossTracker, CommandValidator, ItemFactory</li>
+</ul>
+
+<h4 lang-en>Fixed</h4><h4 lang-vi>Sửa lỗi</h4>
+<ul>
+  <li lang-en>Reload-safe flag to suppress death-event processing during reload</li>
+  <li lang-vi>Cờ an toàn khi reload để bỏ qua sự kiện chết trong lúc reload</li>
+  <li lang-en>Delayed state restore by 2 ticks to ensure worlds are loaded</li>
+  <li lang-vi>Trì hoãn khôi phục trạng thái 2 tick để đảm bảo thế giới đã tải</li>
+  <li lang-en>Only send spawn success if boss actually spawned</li>
+  <li lang-vi>Chỉ gửi thông báo thành công nếu boss thực sự xuất hiện</li>
+</ul>
+
+<h3>v2.0.1 <span style="color:var(--text-muted)">(2026-02-11)</span></h3>
+<h4 lang-en>Security</h4><h4 lang-vi>Bảo mật</h4>
+<ul>
+  <li lang-en>Drop table name sanitization to prevent command injection</li>
+  <li lang-vi>Khử độc tên bảng drop để ngăn chặn command injection</li>
+  <li lang-en>Command validation to block shell metacharacters</li>
+  <li lang-vi>Xác thực lệnh để chặn metacharacter shell</li>
+</ul>
+<h4 lang-en>Fixed</h4><h4 lang-vi>Sửa lỗi</h4>
+<ul>
+  <li lang-en>Duplicate stopTracking() calls, volatile bossScheduler, YAML parsing, forceSpawn reschedule</li>
+  <li lang-vi>Gọi stopTracking() trùng, volatile bossScheduler, phân tích YAML, lên lịch lại forceSpawn</li>
+</ul>
+
+<h3>v2.0.0 <span style="color:var(--text-muted)">(2026-02-11)</span></h3>
+<p lang-en>Initial release with scheduled spawning, damage/tank/support tracking, tiered rewards, persistence, PlaceholderAPI, and multi-language support.</p>
+<p lang-vi>Bản phát hành đầu tiên với spawn theo lịch, theo dõi sát thương/chịu đòn/hỗ trợ, phần thưởng theo bậc, lưu trữ, PlaceholderAPI, và hỗ trợ đa ngôn ngữ.</p>
+
 <!-- Footer -->
 <div class="footer">
-  SLBossSpawner v2.0.0 &mdash; Author: <strong>SalyVn</strong>
+  SLBossSpawner v3.0.0 &mdash; Author: <strong>SalyVn</strong>
 </div>
 
 </main>

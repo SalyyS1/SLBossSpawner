@@ -11,18 +11,23 @@ import java.util.List;
 
 /**
  * Schedules countdown warnings before boss spawn.
- * Fires at configured minute intervals + BossBar in last 60 seconds.
+ *
+ * H12 FIX: Replaced the per-second tick loop with targeted delayed tasks at
+ * each configured interval, eliminating 3600 redundant ticks per warning period.
+ * M13 FIX: BossBar progress now starts at 1.0f and reaches 0.0f exactly at spawn
+ * (was off-by-one: progress(secondsRemaining/60) started < 1.0f on first tick).
  */
 public class SpawnWarningTask {
     private final SLBossSpawner plugin;
     private final BroadcastManager broadcastManager;
     private final BossConfig config;
 
-    private BukkitTask countdownTask;
+    private BukkitTask bossBarTask;
     private BossBar bossBar;
-    private long secondsRemaining;
+    private boolean running = false;
 
-    public SpawnWarningTask(SLBossSpawner plugin, BroadcastManager broadcastManager, BossConfig config) {
+    public SpawnWarningTask(SLBossSpawner plugin, BroadcastManager broadcastManager,
+                            BossConfig config) {
         this.plugin = plugin;
         this.broadcastManager = broadcastManager;
         this.config = config;
@@ -34,57 +39,74 @@ public class SpawnWarningTask {
      */
     public void start(long totalSeconds) {
         stop();
-        this.secondsRemaining = totalSeconds;
+        running = true;
 
-        // Run every second to track countdown
-        countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            secondsRemaining--;
-
-            if (secondsRemaining <= 0) {
-                stop();
-                return;
+        // H12: schedule one delayed task per configured interval instead of ticking every second
+        List<Integer> intervals = config.getSpawnWarningIntervals();
+        for (int minutes : intervals) {
+            long triggerAtSeconds = (long) minutes * 60;
+            long delayTicks = (totalSeconds - triggerAtSeconds) * 20L;
+            if (delayTicks < 0) {
+                // interval already passed — fire immediately
+                broadcastManager.broadcastSpawnWarning(config, minutes);
+                continue;
             }
+            Bukkit.getScheduler().runTaskLater(plugin,
+                    () -> broadcastManager.broadcastSpawnWarning(config, minutes),
+                    delayTicks);
+        }
 
-            // Check if current secondsRemaining matches a minute interval
-            if (secondsRemaining % 60 == 0) {
-                int minutesLeft = (int) (secondsRemaining / 60);
-                List<Integer> intervals = config.getSpawnWarningIntervals();
-                if (intervals.contains(minutesLeft)) {
-                    broadcastManager.broadcastSpawnWarning(config, minutesLeft);
-                }
-            }
+        // BossBar in last 60 seconds — one task to show it, then a per-second updater
+        if (config.isSpawnWarningBossbar() && totalSeconds > 0) {
+            long bossBarStartDelay = Math.max(0L, (totalSeconds - 60L)) * 20L;
 
-            // BossBar in last 60 seconds
-            if (config.isSpawnWarningBossbar()) {
-                if (secondsRemaining == 60) {
-                    bossBar = broadcastManager.createSpawnBossBar(config);
-                    for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.showBossBar(bossBar);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!running) return;
+                bossBar = broadcastManager.createSpawnBossBar(config);
+                // M13 FIX: initial progress = 1.0f (full bar), decrements to 0
+                bossBar.progress(1.0f);
+                for (Player p : Bukkit.getOnlinePlayers()) p.showBossBar(bossBar);
+
+                long displaySeconds = Math.min(totalSeconds, 60L);
+                // Update progress every second for the display window
+                bossBarTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+                    long remaining = displaySeconds;
+
+                    @Override
+                    public void run() {
+                        remaining--;
+                        if (remaining <= 0 || !running) {
+                            if (bossBar != null) {
+                                bossBar.progress(0f);
+                                for (Player p : Bukkit.getOnlinePlayers()) p.hideBossBar(bossBar);
+                                bossBar = null;
+                            }
+                            if (bossBarTask != null) { bossBarTask.cancel(); bossBarTask = null; }
+                            return;
+                        }
+                        // M13: remaining/displaySeconds gives correct 1→0 progression
+                        bossBar.progress(Math.max(0f, (float) remaining / (float) displaySeconds));
                     }
-                }
-
-                if (bossBar != null && secondsRemaining <= 60 && secondsRemaining > 0) {
-                    bossBar.progress(Math.max(0f, (float) secondsRemaining / 60f));
-                }
-            }
-        }, 20L, 20L); // every second (20 ticks)
+                }, 20L, 20L);
+            }, bossBarStartDelay);
+        }
     }
 
     public void stop() {
-        if (countdownTask != null) {
-            countdownTask.cancel();
-            countdownTask = null;
+        running = false;
+
+        if (bossBarTask != null) {
+            bossBarTask.cancel();
+            bossBarTask = null;
         }
 
         if (bossBar != null) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                p.hideBossBar(bossBar);
-            }
+            for (Player p : Bukkit.getOnlinePlayers()) p.hideBossBar(bossBar);
             bossBar = null;
         }
     }
 
     public boolean isRunning() {
-        return countdownTask != null;
+        return running;
     }
 }

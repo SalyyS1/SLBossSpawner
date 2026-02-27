@@ -60,23 +60,22 @@ public class BossInstance {
     public void spawn() {
         despawn();
 
-        Location loc = config.getSpawnLocation();
+        // H5 FIX: resolve location lazily at spawn time
+        Location loc = config.resolveLocation();
         if (loc == null || loc.getWorld() == null) {
-            plugin.getLogger().warning("Invalid spawn location for boss: " + config.getId());
+            plugin.getLogger().warning("Invalid spawn location for boss '" + config.getId()
+                    + "' — world '" + config.getSpawnWorldName() + "' not loaded");
             return;
         }
 
         if (config.isLoadChunks()) {
             Chunk chunk = loc.getChunk();
-            if (!chunk.isLoaded()) {
-                chunk.load(true);
-            }
+            if (!chunk.isLoaded()) chunk.load(true);
         }
 
         try {
             ActiveMob mob = MythicBukkit.inst().getMobManager().spawnMob(
-                config.getMythicMobId(), loc
-            );
+                    config.getMythicMobId(), loc);
 
             if (mob != null) {
                 currentBoss = mob;
@@ -89,7 +88,12 @@ public class BossInstance {
                 spawnEpoch = now;
                 expireEpoch = now + config.getExpireSeconds();
                 expireTime = ZonedDateTime.now(config.getTimeZone())
-                    .plusSeconds(config.getExpireSeconds());
+                        .plusSeconds(config.getExpireSeconds());
+
+                // H10 FIX: register in entity index for O(1) death-event lookup
+                if (entityUuid != null) {
+                    plugin.getBossScheduler().registerEntity(entityUuid, this);
+                }
 
                 startExpireTimer(config.getExpireSeconds());
 
@@ -97,17 +101,18 @@ public class BossInstance {
                     startLeashCheck();
                 }
 
-                plugin.debug("Boss spawned: " + config.getMythicMobId() + " (" + config.getId() + ") UUID=" + entityUuid);
-                plugin.getLogger().info("Boss spawned: " + config.getMythicMobId() + " (" + config.getId() + ")");
+                plugin.debug("Boss spawned: " + config.getMythicMobId()
+                        + " (" + config.getId() + ") UUID=" + entityUuid);
+                plugin.getLogger().info("Boss spawned: " + config.getMythicMobId()
+                        + " (" + config.getId() + ")");
 
-                // Start tracking for this boss (damage, tank, support)
+                // Start tracking (damage, tank, support)
                 if (entityUuid != null) {
                     plugin.getDamageTracker().startTracking(entityUuid);
                     plugin.getTankTracker().startTracking(entityUuid);
                     plugin.getSupportTracker().startTracking(entityUuid);
                 }
 
-                // Save state
                 plugin.getBossStateManager().saveSingle(this);
             }
         } catch (Exception e) {
@@ -126,7 +131,6 @@ public class BossInstance {
             return false;
         }
 
-        // Find the ActiveMob by entity UUID from MythicMobs registry
         ActiveMob found = null;
         for (ActiveMob am : MythicBukkit.inst().getMobManager().getActiveMobs()) {
             Entity e = BossEntityHelper.getBukkitEntity(am);
@@ -137,14 +141,13 @@ public class BossInstance {
         }
 
         if (found == null) {
-            plugin.debug("Boss " + config.getId() + " entity not found for UUID " + savedUuid + ", skipping restore");
+            plugin.debug("Boss " + config.getId() + " entity not found for UUID "
+                    + savedUuid + ", skipping restore");
             return false;
         }
 
         Entity entity = BossEntityHelper.getBukkitEntity(found);
-        if (entity == null) {
-            return false;
-        }
+        if (entity == null) return false;
 
         currentBoss = found;
         entityUuid = savedUuid;
@@ -152,7 +155,10 @@ public class BossInstance {
         expireEpoch = savedExpireEpoch;
         spawnOrigin = entity.getLocation().clone();
         expireTime = ZonedDateTime.now(config.getTimeZone())
-            .plusSeconds(savedExpireEpoch - now);
+                .plusSeconds(savedExpireEpoch - now);
+
+        // H10 FIX: register in entity index after restore
+        plugin.getBossScheduler().registerEntity(entityUuid, this);
 
         long remaining = savedExpireEpoch - now;
         startExpireTimer(remaining);
@@ -161,9 +167,9 @@ public class BossInstance {
             startLeashCheck();
         }
 
-        plugin.getLogger().info("Boss restored: " + config.getId() + " (remaining: " + remaining + "s)");
+        plugin.getLogger().info("Boss restored: " + config.getId()
+                + " (remaining: " + remaining + "s)");
 
-        // Start tracking for restored boss (damage, tank, support)
         plugin.getDamageTracker().startTracking(entityUuid);
         plugin.getTankTracker().startTracking(entityUuid);
         plugin.getSupportTracker().startTracking(entityUuid);
@@ -172,9 +178,7 @@ public class BossInstance {
     }
 
     private void startExpireTimer(long seconds) {
-        if (expireTask != null) {
-            expireTask.cancel();
-        }
+        if (expireTask != null) expireTask.cancel();
 
         expireTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (config.isClearOnExpire()) {
@@ -186,16 +190,11 @@ public class BossInstance {
     }
 
     private void startLeashCheck() {
-        if (leashTask != null) {
-            leashTask.cancel();
-        }
+        if (leashTask != null) leashTask.cancel();
 
         leashTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (currentBoss == null || spawnOrigin == null) {
-                if (leashTask != null) {
-                    leashTask.cancel();
-                    leashTask = null;
-                }
+                if (leashTask != null) { leashTask.cancel(); leashTask = null; }
                 return;
             }
 
@@ -206,26 +205,21 @@ public class BossInstance {
                 return;
             }
 
-            // Cross-world or unloaded world check
             if (spawnOrigin.getWorld() == null || !entity.getWorld().equals(spawnOrigin.getWorld())) {
-                if (spawnOrigin.getWorld() != null) {
-                    entity.teleport(spawnOrigin);
-                }
+                if (spawnOrigin.getWorld() != null) entity.teleport(spawnOrigin);
                 return;
             }
 
-            double distance = entity.getLocation().distance(spawnOrigin);
-            if (distance > config.getLeashRadius()) {
+            if (entity.getLocation().distance(spawnOrigin) > config.getLeashRadius()) {
                 entity.teleport(spawnOrigin);
             }
         }, 20L, 20L);
     }
 
-    /**
-     * Called by BossDeathListener when boss dies via MythicMobDeathEvent.
-     */
+    /** Called by BossDeathListener when boss dies via MythicMobDeathEvent. */
     public void onDeath() {
-        plugin.getLogger().info("Boss died: " + config.getMythicMobId() + " (" + config.getId() + ")");
+        plugin.getLogger().info("Boss died: " + config.getMythicMobId()
+                + " (" + config.getId() + ")");
         cleanup();
     }
 
@@ -235,7 +229,12 @@ public class BossInstance {
             plugin.getDamageTracker().stopTracking(entityUuid);
             plugin.getTankTracker().stopTracking(entityUuid);
             plugin.getSupportTracker().stopTracking(entityUuid);
+            // H10 FIX: deregister from entity index
+            plugin.getBossScheduler().unregisterEntity(entityUuid);
         }
+
+        // M5 FIX: remove from state file on cleanup so dead bosses aren't restored
+        plugin.getBossStateManager().remove(config.getId());
 
         currentBoss = null;
         entityUuid = null;
@@ -244,37 +243,21 @@ public class BossInstance {
         spawnEpoch = 0;
         expireEpoch = 0;
 
-        if (expireTask != null) {
-            expireTask.cancel();
-            expireTask = null;
-        }
-
-        if (leashTask != null) {
-            leashTask.cancel();
-            leashTask = null;
-        }
+        if (expireTask != null) { expireTask.cancel(); expireTask = null; }
+        if (leashTask != null) { leashTask.cancel(); leashTask = null; }
     }
 
     public void despawn() {
         if (currentBoss != null) {
             Entity entity = BossEntityHelper.getBukkitEntity(currentBoss);
-            if (entity != null) {
-                entity.remove();
-            }
+            if (entity != null) entity.remove();
         }
         cleanup();
     }
 
     public void stop() {
-        if (expireTask != null) {
-            expireTask.cancel();
-            expireTask = null;
-        }
-
-        if (leashTask != null) {
-            leashTask.cancel();
-            leashTask = null;
-        }
+        if (expireTask != null) { expireTask.cancel(); expireTask = null; }
+        if (leashTask != null) { leashTask.cancel(); leashTask = null; }
     }
 
     public boolean isAlive() {
