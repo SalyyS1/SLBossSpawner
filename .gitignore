@@ -48,3 +48,9 @@ flydata.yml
 # Test server
 server/
 run/
+
+# Build artifacts & misc
+*.zip
+build.bat
+plans/
+*.jar

@@ -156,7 +156,9 @@ public class BossCommand implements CommandExecutor, TabCompleter {
 
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("boss_id", bossId);
-            placeholders.put("mythicmob", instance.getConfig().getMythicMobId());
+            placeholders.put("mythicmob", instance.isAlive() && instance.getCurrentMythicMobId() != null
+                    ? instance.getCurrentMythicMobId()
+                    : instance.getConfig().getMythicMobId());
             String status = instance.isAlive()
                 ? messageManager.getRawMessage("status-alive")
                 : messageManager.getRawMessage("status-dead");
@@ -180,7 +182,11 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("boss_id", bossId);
 
-            String currentBoss = instance.isAlive() ? instance.getConfig().getMythicMobId() : "None";
+            String currentBoss = instance.isAlive()
+                    ? (instance.getCurrentMythicMobId() != null
+                            ? instance.getCurrentMythicMobId()
+                            : instance.getConfig().getMythicMobId())
+                    : "None";
             placeholders.put("current_boss", currentBoss);
 
             long secondsUntilNext = instance.getSecondsUntilNext();

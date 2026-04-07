@@ -127,11 +127,27 @@ public class BossScheduler {
     }
 
     public void forceSpawnAll() {
+        int delay = 0;
         for (Map.Entry<String, BossInstance> entry : bossInstances.entrySet()) {
-            SpawnWarningTask warningTask = warningTasks.remove(entry.getKey());
+            String bossId = entry.getKey();
+            BossInstance instance = entry.getValue();
+
+            SpawnWarningTask warningTask = warningTasks.remove(bossId);
             if (warningTask != null) warningTask.stop();
-            entry.getValue().spawn();
-            entry.getValue().calculateNextSpawn();
+
+            // Stagger spawns by 4 ticks (200ms) each to give MythicMobs time
+            // to fully initialize each entity — prevents race condition where
+            // getBukkitEntity() returns null for the 4th+ boss
+            if (delay == 0) {
+                instance.spawn();
+                instance.calculateNextSpawn();
+            } else {
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    instance.spawn();
+                    instance.calculateNextSpawn();
+                }, delay);
+            }
+            delay += 4;
         }
     }
 
@@ -160,6 +176,7 @@ public class BossScheduler {
     public String getCurrentBossName(String bossId) {
         BossInstance instance = bossInstances.get(bossId);
         if (instance == null || !instance.isAlive()) return "None";
-        return instance.getConfig().getMythicMobId();
+        String mobId = instance.getCurrentMythicMobId();
+        return mobId != null ? mobId : instance.getConfig().getMythicMobId();
     }
 }

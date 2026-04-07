@@ -106,7 +106,7 @@ public final class SLBossSpawner extends JavaPlugin {
         registerCommands();
 
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            placeholder = new BossPlaceholder(this, leaderboardCache);
+            placeholder = new BossPlaceholder(this);
             placeholder.register();
             getLogger().info("PlaceholderAPI integration enabled!");
         }
@@ -140,6 +140,7 @@ public final class SLBossSpawner extends JavaPlugin {
 
         if (bossStateManager != null && bossScheduler != null) {
             bossStateManager.saveAll();
+            bossStateManager.setDisabled(true); // Prevent async tasks during shutdown
         }
 
         if (bossScheduler != null) {
@@ -151,12 +152,17 @@ public final class SLBossSpawner extends JavaPlugin {
             pendingRewardManager.saveSync();
         }
 
-        if (damageTracker != null) damageTracker.clearAll();
-        if (tankTracker != null) tankTracker.clearAll();
-        if (supportTracker != null) supportTracker.clearAll();
+        if (damageTracker != null)
+            damageTracker.clearAll();
+        if (tankTracker != null)
+            tankTracker.clearAll();
+        if (supportTracker != null)
+            supportTracker.clearAll();
 
-        if (itemProtectionListener != null) itemProtectionListener.cleanup();
-        if (placeholder != null) placeholder.unregister();
+        if (itemProtectionListener != null)
+            itemProtectionListener.cleanup();
+        if (placeholder != null)
+            placeholder.unregister();
 
         getLogger().info("SLBossSpawner disabled!");
     }
@@ -179,7 +185,8 @@ public final class SLBossSpawner extends JavaPlugin {
     }
 
     public void reload() {
-        // H3 FIX: set flag before despawn so death events fired during reload are ignored
+        // H3 FIX: set flag before despawn so death events fired during reload are
+        // ignored
         reloading = true;
 
         configManager.reload();
@@ -231,7 +238,9 @@ public final class SLBossSpawner extends JavaPlugin {
         reloading = false;
     }
 
-    public boolean isReloading() { return reloading; }
+    public boolean isReloading() {
+        return reloading;
+    }
 
     public void debug(String message) {
         if (configManager.isDebug()) {
@@ -239,18 +248,59 @@ public final class SLBossSpawner extends JavaPlugin {
         }
     }
 
-    public ConfigManager getConfigManager() { return configManager; }
-    public MessageManager getMessageManager() { return messageManager; }
-    public ScheduleManager getScheduleManager() { return scheduleManager; }
-    public BossScheduler getBossScheduler() { return bossScheduler; }
-    public BroadcastManager getBroadcastManager() { return broadcastManager; }
-    public DamageTracker getDamageTracker() { return damageTracker; }
-    public TankTracker getTankTracker() { return tankTracker; }
-    public SupportTracker getSupportTracker() { return supportTracker; }
-    public BossStateManager getBossStateManager() { return bossStateManager; }
-    public PendingRewardManager getPendingRewardManager() { return pendingRewardManager; }
-    public RewardManager getRewardManager() { return rewardManager; }
-    public DatabaseManager getDatabaseManager() { return databaseManager; }
-    public StatisticsManager getStatisticsManager() { return statisticsManager; }
-    public LeaderboardCache getLeaderboardCache() { return leaderboardCache; }
+    public ConfigManager getConfigManager() {
+        return configManager;
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
+    }
+
+    public ScheduleManager getScheduleManager() {
+        return scheduleManager;
+    }
+
+    public BossScheduler getBossScheduler() {
+        return bossScheduler;
+    }
+
+    public BroadcastManager getBroadcastManager() {
+        return broadcastManager;
+    }
+
+    public DamageTracker getDamageTracker() {
+        return damageTracker;
+    }
+
+    public TankTracker getTankTracker() {
+        return tankTracker;
+    }
+
+    public SupportTracker getSupportTracker() {
+        return supportTracker;
+    }
+
+    public BossStateManager getBossStateManager() {
+        return bossStateManager;
+    }
+
+    public PendingRewardManager getPendingRewardManager() {
+        return pendingRewardManager;
+    }
+
+    public RewardManager getRewardManager() {
+        return rewardManager;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public StatisticsManager getStatisticsManager() {
+        return statisticsManager;
+    }
+
+    public LeaderboardCache getLeaderboardCache() {
+        return leaderboardCache;
+    }
 }

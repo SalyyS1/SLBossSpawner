@@ -25,10 +25,10 @@ public class BroadcastManager {
     /**
      * Broadcast boss death to all players.
      */
-    public void broadcastDeath(BossConfig config, String killerName) {
+    public void broadcastDeath(BossConfig config, String killerName, String bossDisplayName) {
         var mm = plugin.getMessageManager();
         Map<String, String> placeholders = Map.of(
-            "boss_name", config.getMythicMobId(),
+            "boss_name", bossDisplayName != null ? bossDisplayName : config.getMythicMobId(),
             "killer_name", killerName != null ? killerName : ""
         );
 
@@ -108,7 +108,7 @@ public class BroadcastManager {
      * Broadcast ranking leaderboard after boss death (legacy, uses damage ranking keys).
      */
     public void broadcastRanking(BossConfig config, java.util.List<String> rankingLines) {
-        broadcastCategoryRanking(config, "ranking-header", "ranking-footer", rankingLines);
+        broadcastCategoryRanking(config, "ranking-header", "ranking-footer", rankingLines, null);
     }
 
     /**
@@ -118,12 +118,14 @@ public class BroadcastManager {
      * @param rankingLines pre-formatted ranking entry lines
      */
     public void broadcastCategoryRanking(BossConfig config, String headerKey, String footerKey,
-                                          java.util.List<String> rankingLines) {
+                                          java.util.List<String> rankingLines,
+                                          String bossDisplayName) {
         if (rankingLines.isEmpty()) return;
 
         var mm = plugin.getMessageManager();
         Map<String, String> placeholders = new java.util.HashMap<>();
-        placeholders.put("boss_name", config.getMythicMobId());
+        placeholders.put("boss_name",
+                bossDisplayName != null ? bossDisplayName : config.getMythicMobId());
 
         String header = mm.getRawMessage(headerKey, placeholders);
         String footer = mm.getRawMessage(footerKey, placeholders);

@@ -126,7 +126,7 @@ public class RewardManager {
         for (int i = 0; i < rankings.size() && i < 10; i++) {
             rankingLines.add(mm.getRawMessage(entryKey, placeholderBuilder.apply(rankings.get(i))));
         }
-        plugin.getBroadcastManager().broadcastCategoryRanking(config, headerKey, footerKey, rankingLines);
+        plugin.getBroadcastManager().broadcastCategoryRanking(config, headerKey, footerKey, rankingLines, null);
 
         // Distribute per-tier
         for (RewardTierConfig tier : tiers) {

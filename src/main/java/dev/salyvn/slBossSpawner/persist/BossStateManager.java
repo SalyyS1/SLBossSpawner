@@ -22,26 +22,39 @@ import java.util.UUID;
 public class BossStateManager {
     private final SLBossSpawner plugin;
     private final File stateFile;
+    private volatile boolean disabled = false;
 
     public BossStateManager(SLBossSpawner plugin) {
         this.plugin = plugin;
         this.stateFile = new File(plugin.getDataFolder(), "boss-state.yml");
     }
 
-    /** Save all currently alive bosses — always called synchronously (shutdown / reload). */
+    /** Set to true during shutdown to prevent async task scheduling. */
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
+    /**
+     * Save all currently alive bosses — always called synchronously (shutdown /
+     * reload).
+     */
     public void saveAll() {
         BossScheduler scheduler = plugin.getBossScheduler();
         YamlConfiguration yaml = new YamlConfiguration();
 
         for (Map.Entry<String, BossInstance> entry : scheduler.getAllBossInstances().entrySet()) {
             BossInstance instance = entry.getValue();
-            if (!instance.isAlive() || instance.getEntityUuid() == null) continue;
+            if (!instance.isAlive() || instance.getEntityUuid() == null)
+                continue;
 
             String bossId = entry.getKey();
             yaml.set(bossId + ".entity-uuid", instance.getEntityUuid().toString());
             yaml.set(bossId + ".spawn-time", instance.getSpawnEpoch());
             yaml.set(bossId + ".expire-time", instance.getExpireEpoch());
             yaml.set(bossId + ".boss-config-id", bossId);
+            if (instance.getCurrentMythicMobId() != null) {
+                yaml.set(bossId + ".current-mythicmob", instance.getCurrentMythicMobId());
+            }
         }
 
         writeSync(yaml);
@@ -63,6 +76,9 @@ public class BossStateManager {
             yaml.set(bossId + ".spawn-time", instance.getSpawnEpoch());
             yaml.set(bossId + ".expire-time", instance.getExpireEpoch());
             yaml.set(bossId + ".boss-config-id", bossId);
+            if (instance.getCurrentMythicMobId() != null) {
+                yaml.set(bossId + ".current-mythicmob", instance.getCurrentMythicMobId());
+            }
         }
 
         // Write off the main thread
@@ -74,7 +90,8 @@ public class BossStateManager {
      * Snapshot on main thread, write file async.
      */
     public void remove(String bossId) {
-        if (!stateFile.exists()) return;
+        if (disabled || !stateFile.exists())
+            return;
 
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(stateFile);
         yaml.set(bossId, null);
@@ -89,7 +106,8 @@ public class BossStateManager {
 
     /** Restore bosses from state file after server restart. */
     public void restoreFromState(BossScheduler scheduler) {
-        if (!stateFile.exists()) return;
+        if (!stateFile.exists())
+            return;
 
         YamlConfiguration yaml;
         try {
@@ -104,7 +122,8 @@ public class BossStateManager {
 
         for (String bossId : yaml.getKeys(false)) {
             ConfigurationSection section = yaml.getConfigurationSection(bossId);
-            if (section == null) continue;
+            if (section == null)
+                continue;
 
             BossInstance instance = scheduler.getBossInstance(bossId);
             if (instance == null) {
@@ -116,7 +135,8 @@ public class BossStateManager {
             String uuidStr = section.getString("entity-uuid");
             long spawnTime = section.getLong("spawn-time", 0);
             long expireTime = section.getLong("expire-time", 0);
-            if (uuidStr == null || spawnTime == 0 || expireTime == 0) continue;
+            if (uuidStr == null || spawnTime == 0 || expireTime == 0)
+                continue;
 
             UUID entityUuid;
             try {
@@ -126,7 +146,8 @@ public class BossStateManager {
                 continue;
             }
 
-            if (instance.restore(entityUuid, spawnTime, expireTime)) {
+            if (instance.restore(entityUuid, spawnTime, expireTime,
+                    section.getString("current-mythicmob"))) {
                 restored++;
             } else {
                 expired++;
@@ -141,7 +162,8 @@ public class BossStateManager {
     }
 
     public void clear() {
-        if (stateFile.exists()) stateFile.delete();
+        if (stateFile.exists())
+            stateFile.delete();
     }
 
     // --- Private helpers ---
@@ -156,11 +178,14 @@ public class BossStateManager {
     }
 
     private void writeAsync(YamlConfiguration yaml, String context) {
+        if (disabled)
+            return;
         // Serialise to string on calling (main) thread before handing off
         String yamlString = yaml.saveToString();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                if (!stateFile.getParentFile().exists()) stateFile.getParentFile().mkdirs();
+                if (!stateFile.getParentFile().exists())
+                    stateFile.getParentFile().mkdirs();
                 java.nio.file.Files.writeString(stateFile.toPath(), yamlString);
             } catch (IOException e) {
                 plugin.getLogger().severe("Failed to async-write boss state (" + context + "): "

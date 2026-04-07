@@ -1,6 +1,7 @@
-# SLBossSpawner Cấu Hình Lịch Trình
-# Phần thưởng được cấu hình trong reward.yml
+# SLBossSpawner Schedule Configuration
+# Rewards are configured in reward.yml
 
+# Example 1: Single boss (old method - still works)
 boss:
   mythicmob: SkeletonKing
   expire: 3600
@@ -18,6 +19,11 @@ boss:
     world: bossworld
     leashRadius: 10
   loadChunks: true
+  spawn-sound:
+    enabled: true
+    sound: ENTITY_ENDER_DRAGON_GROWL
+    volume: 1.0
+    pitch: 0.8
   broadcast:
     death:
       chat: true
@@ -28,8 +34,10 @@ boss:
       bossbar: true
       intervals: [30, 15, 5, 1]
 
+# Example 2: Random boss from list (equal chance)
 boss2:
-  mythicmob: SkeletonKing2
+  mythicmob: SkeletonKing, DragonLord, ZombieKing
+  random: true
   expire: 3600
   clearOnExpire: true
   time-settings:
@@ -45,6 +53,11 @@ boss2:
     world: bossworld
     leashRadius: 20
   loadChunks: true
+  spawn-sound:
+    enabled: true
+    sound: ENTITY_WITHER_SPAWN
+    volume: 1.0
+    pitch: 1.0
   broadcast:
     death:
       chat: true
@@ -54,3 +67,12 @@ boss2:
       title: true
       bossbar: true
       intervals: [30, 15, 5, 1]
+
+# Example 3: Random boss by percentage (%)
+# Number behind mob name = % chance to spawn
+# boss3_rare: 10% | boss3_common: 50% | boss3_epic: 40%
+# boss3:
+#   mythicmob: RareBoss 10, CommonBoss 50, EpicBoss 40
+#   random: true
+#   expire: 1800
+#   ...

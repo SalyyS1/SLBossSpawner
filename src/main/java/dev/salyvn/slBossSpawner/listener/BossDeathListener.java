@@ -57,7 +57,8 @@ public class BossDeathListener implements Listener {
         Player killer = (event.getKiller() instanceof Player p) ? p : null;
         String killerName = killer != null ? killer.getName() : null;
 
-        plugin.getBroadcastManager().broadcastDeath(instance.getConfig(), killerName);
+        plugin.getBroadcastManager().broadcastDeath(instance.getConfig(), killerName,
+                instance.getCurrentMythicMobId());
 
         if (instance.getConfig().isRewardsEnabled()) {
             rewardManager.distributeAllRewards(instance.getConfig(),

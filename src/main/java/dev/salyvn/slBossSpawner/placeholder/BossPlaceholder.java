@@ -12,13 +12,16 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
+/**
+ * M15 FIX: Removed stored LeaderboardCache reference. Now uses
+ * plugin.getLeaderboardCache() for live reference that survives reload().
+ */
+
 public class BossPlaceholder extends PlaceholderExpansion {
     private final SLBossSpawner plugin;
-    private final LeaderboardCache leaderboardCache;
 
-    public BossPlaceholder(SLBossSpawner plugin, LeaderboardCache leaderboardCache) {
+    public BossPlaceholder(SLBossSpawner plugin) {
         this.plugin = plugin;
-        this.leaderboardCache = leaderboardCache;
     }
 
     @Override
@@ -75,7 +78,11 @@ public class BossPlaceholder extends PlaceholderExpansion {
 
         return switch (placeholder.toLowerCase()) {
             case "current_boss", "current" ->
-                instance.isAlive() ? instance.getConfig().getMythicMobId() : "None";
+                instance.isAlive()
+                        ? (instance.getCurrentMythicMobId() != null
+                                ? instance.getCurrentMythicMobId()
+                                : instance.getConfig().getMythicMobId())
+                        : "None";
             case "next" -> {
                 long seconds = instance.getSecondsUntilNext();
                 yield seconds < 0 ? "N/A" : TimeUtils.formatDuration(seconds);
@@ -89,19 +96,24 @@ public class BossPlaceholder extends PlaceholderExpansion {
             case "status" ->
                 instance.isAlive() ? "Alive" : "Dead";
             case "mythicmob", "mob" ->
-                instance.getConfig().getMythicMobId();
+                instance.isAlive() && instance.getCurrentMythicMobId() != null
+                        ? instance.getCurrentMythicMobId()
+                        : instance.getConfig().getMythicMobId();
             default -> null;
         };
     }
 
     /**
-     * %slbs_top_<metric>_<rank>_<name|value>%          → ALL_TIME (backwards-compat)
+     * %slbs_top_<metric>_<rank>_<name|value>% → ALL_TIME (backwards-compat)
      * %slbs_top_<period>_<metric>_<rank>_<name|value>% → specific period
      *
-     * Supported periods: alltime, daily, weekly, monthly, quarterly, seasonal, yearly
+     * Supported periods: alltime, daily, weekly, monthly, quarterly, seasonal,
+     * yearly
      */
     private String handleTopPlaceholder(String remainder) {
-        if (leaderboardCache == null) return "---";
+        LeaderboardCache leaderboardCache = plugin.getLeaderboardCache();
+        if (leaderboardCache == null)
+            return "---";
 
         String[] parts = remainder.split("_");
         // Try 4-part format first: period_metric_rank_field
@@ -110,12 +122,17 @@ public class BossPlaceholder extends PlaceholderExpansion {
             if (resolved != null) {
                 String metric = parts[1];
                 int rank;
-                try { rank = Integer.parseInt(parts[2]); } catch (NumberFormatException e) { return null; }
+                try {
+                    rank = Integer.parseInt(parts[2]);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
                 String field = parts[3];
 
                 List<LeaderboardRow> rows = leaderboardCache.getTopPlayers(
                         metric, resolved[0], resolved[1], "__global__");
-                if (rank < 1 || rank > rows.size()) return "---";
+                if (rank < 1 || rank > rows.size())
+                    return "---";
                 LeaderboardRow row = rows.get(rank - 1);
                 return switch (field.toLowerCase()) {
                     case "name" -> row.playerName();
@@ -126,17 +143,23 @@ public class BossPlaceholder extends PlaceholderExpansion {
         }
 
         // Fallback: 3-part format: metric_rank_field (ALL_TIME)
-        if (parts.length < 3) return null;
+        if (parts.length < 3)
+            return null;
 
         String metric = parts[0];
         int rank;
-        try { rank = Integer.parseInt(parts[1]); } catch (NumberFormatException e) { return null; }
+        try {
+            rank = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
         String field = parts[2];
 
         List<LeaderboardRow> rows = leaderboardCache.getTopPlayers(
                 metric, "ALL_TIME", "all", "__global__");
 
-        if (rank < 1 || rank > rows.size()) return "---";
+        if (rank < 1 || rank > rows.size())
+            return "---";
 
         LeaderboardRow row = rows.get(rank - 1);
         return switch (field.toLowerCase()) {
@@ -147,16 +170,19 @@ public class BossPlaceholder extends PlaceholderExpansion {
     }
 
     /**
-     * %slbs_stats_<metric>%                     → ALL_TIME / all / __global__
-     * %slbs_stats_<metric>_<period>%             → period / key / __global__
-     * %slbs_stats_<metric>_<period>_<boss>%      → period / key / boss
+     * %slbs_stats_<metric>% → ALL_TIME / all / __global__
+     * %slbs_stats_<metric>_<period>% → period / key / __global__
+     * %slbs_stats_<metric>_<period>_<boss>% → period / key / boss
      * Searches cache top-N for the requesting player. Returns "0" if not found.
      */
     private String handleStatsPlaceholder(OfflinePlayer player, String remainder) {
-        if (leaderboardCache == null) return "0";
+        LeaderboardCache leaderboardCache = plugin.getLeaderboardCache();
+        if (leaderboardCache == null)
+            return "0";
 
         String[] parts = remainder.split("_");
-        if (parts.length < 1) return null;
+        if (parts.length < 1)
+            return null;
 
         String metric = parts[0];
         String periodType = "ALL_TIME";
@@ -166,7 +192,8 @@ public class BossPlaceholder extends PlaceholderExpansion {
         if (parts.length >= 2) {
             String periodAlias = parts[1].toLowerCase();
             String[] resolved = resolvePeriod(periodAlias);
-            if (resolved == null) return null;
+            if (resolved == null)
+                return null;
             periodType = resolved[0];
             periodKey = resolved[1];
         }
@@ -190,16 +217,23 @@ public class BossPlaceholder extends PlaceholderExpansion {
      */
     private String[] resolvePeriod(String alias) {
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
-        dev.salyvn.slBossSpawner.statistics.SeasonResolver sr =
-                plugin.getStatisticsManager() != null ? plugin.getStatisticsManager().getSeasonResolver() : null;
+        dev.salyvn.slBossSpawner.statistics.SeasonResolver sr = plugin.getStatisticsManager() != null
+                ? plugin.getStatisticsManager().getSeasonResolver()
+                : null;
         return switch (alias.toLowerCase()) {
-            case "alltime" -> new String[]{"ALL_TIME", "all"};
-            case "daily" -> new String[]{"DAILY", dev.salyvn.slBossSpawner.statistics.PeriodType.DAILY.computeKey(today, sr)};
-            case "weekly", "week" -> new String[]{"WEEKLY", dev.salyvn.slBossSpawner.statistics.PeriodType.WEEKLY.computeKey(today, sr)};
-            case "monthly", "month" -> new String[]{"MONTHLY", dev.salyvn.slBossSpawner.statistics.PeriodType.MONTHLY.computeKey(today, sr)};
-            case "quarterly", "quarter" -> new String[]{"QUARTERLY", dev.salyvn.slBossSpawner.statistics.PeriodType.QUARTERLY.computeKey(today, sr)};
-            case "seasonal", "season" -> new String[]{"SEASONAL", dev.salyvn.slBossSpawner.statistics.PeriodType.SEASONAL.computeKey(today, sr)};
-            case "yearly", "year" -> new String[]{"YEARLY", dev.salyvn.slBossSpawner.statistics.PeriodType.YEARLY.computeKey(today, sr)};
+            case "alltime" -> new String[] { "ALL_TIME", "all" };
+            case "daily" ->
+                new String[] { "DAILY", dev.salyvn.slBossSpawner.statistics.PeriodType.DAILY.computeKey(today, sr) };
+            case "weekly", "week" ->
+                new String[] { "WEEKLY", dev.salyvn.slBossSpawner.statistics.PeriodType.WEEKLY.computeKey(today, sr) };
+            case "monthly", "month" -> new String[] { "MONTHLY",
+                    dev.salyvn.slBossSpawner.statistics.PeriodType.MONTHLY.computeKey(today, sr) };
+            case "quarterly", "quarter" -> new String[] { "QUARTERLY",
+                    dev.salyvn.slBossSpawner.statistics.PeriodType.QUARTERLY.computeKey(today, sr) };
+            case "seasonal", "season" -> new String[] { "SEASONAL",
+                    dev.salyvn.slBossSpawner.statistics.PeriodType.SEASONAL.computeKey(today, sr) };
+            case "yearly", "year" ->
+                new String[] { "YEARLY", dev.salyvn.slBossSpawner.statistics.PeriodType.YEARLY.computeKey(today, sr) };
             default -> null;
         };
     }

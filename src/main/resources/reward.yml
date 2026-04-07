@@ -1,20 +1,20 @@
-# SLBossSpawner Cấu Hình Phần Thưởng
-# Cấu hình phần thưởng cho từng boss.
-# Boss ID phải trùng với schedules.yml.
-# Hỗ trợ 3 hạng mục: damage (sát thương), tank (chịu đòn), support (hỗ trợ)
+# SLBossSpawner Reward Configuration
+# Reward configuration for each boss.
+# Boss ID must match schedules.yml.
+# Supports 3 categories: damage, tank, support
 
 boss:
   enabled: true
   item-protection:
     enabled: true
     duration: 60
-    expire-action: public  # "public" = ai cũng nhặt được, "despawn" = xóa vật phẩm
+    expire-action: public  # "public" = anyone can pick it up, "despawn" = remove item
   last-hit-bonus:
     multiplier: 1.5
   global-multiplier: 1.0
   multiply-drop-tables: false
 
-  # Hạng mục sát thương - Top người gây sát thương cho boss
+  # Damage category - Top damage dealers to the boss
   damage:
     enabled: true
     tiers:
@@ -28,7 +28,7 @@ boss:
           - type: vanilla
             material: DIAMOND
             amount: 5
-            display-name: "&#FFD93D&lPhần Thưởng Sát Thương Hạng 1"
+            display-name: "&#FFD93D&lDamage Reward Rank 1"
       2:
         multiplier: 2.0
         commands:
@@ -38,7 +38,7 @@ boss:
           - type: vanilla
             material: GOLD_INGOT
             amount: 10
-            display-name: "&#C0C0C0&lPhần Thưởng Sát Thương Hạng 2"
+            display-name: "&#C0C0C0&lDamage Reward Rank 2"
       3:
         multiplier: 1.5
         commands:
@@ -48,9 +48,9 @@ boss:
           - type: vanilla
             material: IRON_INGOT
             amount: 15
-            display-name: "&#CD7F32&lPhần Thưởng Sát Thương Hạng 3"
+            display-name: "&#CD7F32&lDamage Reward Rank 3"
 
-  # Hạng mục chịu đòn - Top người nhận sát thương từ boss
+  # Tank category - Top damage takers from the boss
   tank:
     enabled: true
     tiers:
@@ -63,7 +63,7 @@ boss:
           - type: vanilla
             material: NETHERITE_SCRAP
             amount: 2
-            display-name: "&#4D96FF&lPhần Thưởng Chịu Đòn Hạng 1"
+            display-name: "&#4D96FF&lTank Reward Rank 1"
       2:
         multiplier: 1.0
         commands:
@@ -73,9 +73,9 @@ boss:
           - type: vanilla
             material: GOLDEN_APPLE
             amount: 3
-            display-name: "&#4D96FF&lPhần Thưởng Chịu Đòn Hạng 2"
+            display-name: "&#4D96FF&lTank Reward Rank 2"
 
-  # Hạng mục hỗ trợ - Top người gây hiệu ứng hại cho boss
+  # Support category - Top score for support
   support:
     enabled: true
     tiers:
@@ -88,7 +88,7 @@ boss:
           - type: vanilla
             material: EMERALD
             amount: 5
-            display-name: "&#6BCB77&lPhần Thưởng Hỗ Trợ Hạng 1"
+            display-name: "&#6BCB77&lSupport Reward Rank 1"
       2:
         multiplier: 1.0
         commands:
@@ -98,21 +98,21 @@ boss:
           - type: vanilla
             material: LAPIS_LAZULI
             amount: 10
-            display-name: "&#6BCB77&lPhần Thưởng Hỗ Trợ Hạng 2"
+            display-name: "&#6BCB77&lSupport Reward Rank 2"
 
-# Ví dụ sử dụng các loại vật phẩm:
-#   - type: vanilla          # Vật phẩm Minecraft gốc
+# Example for item types:
+#   - type: vanilla          # Vanilla Minecraft item
 #     material: DIAMOND
 #     amount: 5
-#     display-name: "&#FFD93D&lTên Hiển Thị"
+#     display-name: "&#FFD93D&lDisplay Name"
 #
-#   - type: mmoitems          # Vật phẩm từ plugin MMOItems
-#     material: SWORD          # Loại MMOItems
-#     id: "CUSTOM_SWORD"       # ID vật phẩm MMOItems
+#   - type: mmoitems          # Items from MMOItems plugin
+#     material: SWORD          # MMOItems Category
+#     id: "CUSTOM_SWORD"       # MMOItems ID
 #     amount: 1
 #
-#   - type: mythicmobs         # Vật phẩm từ plugin MythicMobs
-#     material: "CustomItem"   # Tên nội bộ MythicMobs
+#   - type: mythicmobs         # Items from MythicMobs plugin
+#     material: "CustomItem"   # MythicMobs internal name
 #     amount: 1
 
-# Boss không có phần thưởng: bỏ qua section hoặc đặt enabled: false
+# Boss without rewards: remove section or set enabled: false
