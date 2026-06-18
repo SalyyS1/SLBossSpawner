@@ -4,8 +4,14 @@
 # Example 1: Single boss (old method - still works)
 boss:
   mythicmob: SkeletonKing
+  # Friendly name shown in spawn/death/bossbar broadcasts. Supports color codes
+  # (& and &#RRGGBB). If omitted, the MythicMob id is shown instead.
+  name: "&cSkeleton King"
   expire: 3600
   clearOnExpire: true
+  # Despawn the boss if NO player is nearby for this many seconds.
+  # 0 = disabled (boss stays until it expires or dies). Default is 0.
+  no-player-despawn: 0
   time-settings:
     zone: Asia/Ho_Chi_Minh
     time:
@@ -76,3 +82,31 @@ boss2:
 #   random: true
 #   expire: 1800
 #   ...
+
+# Example 4: Random boss with per-mob expire time (minutes)
+# Each mob has its own despawn timer. No need for "random: true" (auto-enabled).
+# "expire" field is the fallback if a mob has 0 or no value.
+# boss4:
+#   mythicmob:
+#     SkeletonKing: 20      # despawns after 20 minutes
+#     DragonLord: 30         # despawns after 30 minutes
+#     ZombieKing: 45         # despawns after 45 minutes
+#   expire: 3600             # fallback (used if mob value = 0)
+#   clearOnExpire: true
+#   time-settings:
+#     zone: Asia/Ho_Chi_Minh
+#     time:
+#       - "14:00"
+#       - "20:00"
+#   location:
+#     x: 200
+#     y: 64
+#     z: -300
+#     world: bossworld
+#     leashRadius: 30
+#   loadChunks: true
+#   spawn-sound:
+#     enabled: true
+#     sound: ENTITY_ENDER_DRAGON_GROWL
+#     volume: 1.0
+#     pitch: 0.8

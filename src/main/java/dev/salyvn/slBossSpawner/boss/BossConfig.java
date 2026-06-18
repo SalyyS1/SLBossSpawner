@@ -21,6 +21,7 @@ public class BossConfig {
 
     private final String id;
     private final String mythicMobId;
+    private final String displayName;
     private final List<MobEntry> mythicMobEntries;
     private final boolean randomSpawn;
     private final int expireSeconds;
@@ -71,6 +72,7 @@ public class BossConfig {
     private BossConfig(Builder b) {
         this.id = b.id;
         this.mythicMobId = b.mythicMobId;
+        this.displayName = b.displayName;
         this.mythicMobEntries = List.copyOf(b.mythicMobEntries);
         this.randomSpawn = b.randomSpawn;
         this.expireSeconds = b.expireSeconds;
@@ -133,6 +135,14 @@ public class BossConfig {
         return mythicMobId;
     }
 
+    /**
+     * Friendly name shown in broadcasts (spawn warning, death, bossbar).
+     * Falls back to the MythicMob ID when no display name is configured.
+     */
+    public String getDisplayName() {
+        return (displayName != null && !displayName.isBlank()) ? displayName : mythicMobId;
+    }
+
     /** All configured mob entries (with optional weights). */
     public List<MobEntry> getMythicMobEntries() {
         return mythicMobEntries;
@@ -143,13 +153,15 @@ public class BossConfig {
     }
 
     /**
-     * Pick a mob ID for this spawn cycle.
-     * If random is disabled or list has only 1 entry, returns the default mob.
+     * Pick a mob entry for this spawn cycle.
+     * If random is disabled or list has only 1 entry, returns the first entry.
      * If entries have weights, uses weighted random; otherwise equal chance.
      */
-    public String pickMobId() {
+    public MobEntry pickMob() {
         if (!randomSpawn || mythicMobEntries.size() <= 1) {
-            return mythicMobId;
+            return mythicMobEntries.isEmpty()
+                    ? new MobEntry(mythicMobId, 0, 0)
+                    : mythicMobEntries.get(0);
         }
 
         boolean hasWeights = mythicMobEntries.stream().anyMatch(e -> e.weight() > 0);
@@ -162,19 +174,39 @@ public class BossConfig {
             for (MobEntry entry : mythicMobEntries) {
                 cumulative += entry.weight();
                 if (roll < cumulative) {
-                    return entry.mobId();
+                    return entry;
                 }
             }
             // Fallback (shouldn't happen)
-            return mythicMobEntries.get(mythicMobEntries.size() - 1).mobId();
+            return mythicMobEntries.get(mythicMobEntries.size() - 1);
         } else {
             // Equal weight: pick random index
             int idx = ThreadLocalRandom.current().nextInt(mythicMobEntries.size());
-            return mythicMobEntries.get(idx).mobId();
+            return mythicMobEntries.get(idx);
         }
     }
 
+    /**
+     * @deprecated Use {@link #pickMob()} which returns the full MobEntry.
+     */
+    @Deprecated
+    public String pickMobId() {
+        return pickMob().mobId();
+    }
+
     public int getExpireSeconds() {
+        return expireSeconds;
+    }
+
+    /**
+     * Get the effective expire time for a specific mob.
+     * If the mob has its own expireMinutes > 0, use that (converted to seconds).
+     * Otherwise, fall back to the global expire setting.
+     */
+    public int getExpireSecondsForMob(MobEntry mob) {
+        if (mob != null && mob.expireMinutes() > 0) {
+            return mob.expireMinutes() * 60;
+        }
         return expireSeconds;
     }
 
@@ -311,6 +343,7 @@ public class BossConfig {
     public static class Builder {
         private final String id;
         private final String mythicMobId;
+        private String displayName = null;
         private List<MobEntry> mythicMobEntries = List.of();
         private boolean randomSpawn = false;
         private int expireSeconds = 3600;
@@ -354,6 +387,11 @@ public class BossConfig {
 
         public Builder mythicMobEntries(List<MobEntry> v) {
             this.mythicMobEntries = v;
+            return this;
+        }
+
+        public Builder displayName(String v) {
+            this.displayName = v;
             return this;
         }
 
@@ -566,9 +604,10 @@ public class BossConfig {
     }
 
     /**
-     * A mob entry with an optional weight (percentage).
+     * A mob entry with optional weight (percentage) and per-mob expire time.
      * weight <= 0 means "equal chance" (no explicit weight).
+     * expireMinutes <= 0 means "use global expire setting".
      */
-    public record MobEntry(String mobId, double weight) {
+    public record MobEntry(String mobId, double weight, int expireMinutes) {
     }
 }

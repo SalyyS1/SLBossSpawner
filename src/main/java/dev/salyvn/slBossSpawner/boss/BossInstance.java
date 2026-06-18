@@ -85,13 +85,15 @@ public class BossInstance {
         }
 
         // Pick which mob to spawn (random pool or single)
-        String mobToSpawn = config.pickMobId();
+        BossConfig.MobEntry pickedMob = config.pickMob();
+        String mobToSpawn = pickedMob.mobId();
         currentMythicMobId = mobToSpawn;
 
         plugin.getLogger().info("[SPAWN] " + config.getId() + " → world="
                 + loc.getWorld().getName() + " x=" + loc.getBlockX()
                 + " y=" + loc.getBlockY() + " z=" + loc.getBlockZ()
-                + (config.isRandomSpawn() ? " (random: " + mobToSpawn + ")" : ""));
+                + (config.isRandomSpawn() ? " (random: " + mobToSpawn + ")" : "")
+                + (pickedMob.expireMinutes() > 0 ? " expire=" + pickedMob.expireMinutes() + "min" : ""));
 
         // M16: force-load chunk BEFORE spawn to ensure entity persists in unloaded area
         if (config.isLoadChunks()) {
@@ -125,18 +127,21 @@ public class BossInstance {
                         + " UUID=" + entityUuid
                         + " entity=" + (entity != null ? entity.getType() : "NULL"));
 
+                // Use per-mob expire time if configured, otherwise global expire
+                int effectiveExpireSeconds = config.getExpireSecondsForMob(pickedMob);
+
                 long now = Instant.now().getEpochSecond();
                 spawnEpoch = now;
-                expireEpoch = now + config.getExpireSeconds();
+                expireEpoch = now + effectiveExpireSeconds;
                 expireTime = ZonedDateTime.now(config.getTimeZone())
-                        .plusSeconds(config.getExpireSeconds());
+                        .plusSeconds(effectiveExpireSeconds);
 
                 // H10 FIX: register in entity index for O(1) death-event lookup
                 if (entityUuid != null) {
                     plugin.getBossScheduler().registerEntity(entityUuid, this);
                 }
 
-                startExpireTimer(config.getExpireSeconds());
+                startExpireTimer(effectiveExpireSeconds);
 
                 // Delay leash and noPlayer checks by 3 seconds to allow MythicMobs
                 // entity initialization to fully complete (prevents race condition

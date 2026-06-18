@@ -51,13 +51,32 @@ public class ScheduleManager {
                 continue;
 
             // --- Schedule fields ---
-            // Parse mythicmob field: supports comma-separated list with optional weights
-            // Format: "boss1, boss2, boss3"         → equal chance
-            // Format: "boss1 10, boss2 40, boss3 50" → weighted by percentage
-            String mythicMobRaw = bossSection.getString("mythicmob", "SkeletonKing");
-            List<MobEntry> mobEntries = parseMobEntries(mythicMobRaw);
+            // Parse mythicmob field: supports 3 formats
+            // Format 1 (string): "boss1, boss2, boss3"         → equal chance
+            // Format 2 (string): "boss1 10, boss2 40, boss3 50" → weighted by percentage
+            // Format 3 (map):    mythicmob:
+            //                      boss1: 20   ← expire in minutes
+            //                      boss2: 30
+            List<MobEntry> mobEntries;
+            ConfigurationSection mythicMobSection = bossSection.getConfigurationSection("mythicmob");
+            if (mythicMobSection != null) {
+                // Map format: key = mobId, value = expire minutes
+                mobEntries = parseMobEntriesFromSection(mythicMobSection);
+            } else {
+                // String format (legacy)
+                String mythicMobRaw = bossSection.getString("mythicmob", "SkeletonKing");
+                mobEntries = parseMobEntries(mythicMobRaw);
+            }
             String mythicMobId = mobEntries.isEmpty() ? "SkeletonKing" : mobEntries.get(0).mobId();
             boolean randomSpawn = bossSection.getBoolean("random", false);
+
+            // Friendly name shown in broadcasts (supports color codes). Empty = use mob ID.
+            String displayName = bossSection.getString("name", "");
+
+            // Auto-enable random when map format has 2+ mob entries
+            if (mythicMobSection != null && mobEntries.size() > 1) {
+                randomSpawn = true;
+            }
 
             int expireSeconds = bossSection.getInt("expire", 3600);
             boolean clearOnExpire = bossSection.getBoolean("clearOnExpire", true);
@@ -83,7 +102,9 @@ public class ScheduleManager {
 
             int leashRadius = bossSection.getInt("location.leashRadius", 10);
             boolean loadChunks = bossSection.getBoolean("loadChunks", true);
-            int noPlayerDespawnSeconds = bossSection.getInt("no-player-despawn", 180);
+            // 0 = disabled (boss only despawns on expire/death). Avoids surprise
+            // despawns when no player happens to be standing near the boss.
+            int noPlayerDespawnSeconds = bossSection.getInt("no-player-despawn", 0);
 
             // --- Broadcast fields ---
             boolean deathChat = true, deathTitle = true;
@@ -179,6 +200,7 @@ public class ScheduleManager {
             // M2 FIX: use Builder instead of 28-arg constructor
             BossConfig config = new BossConfig.Builder(bossId, mythicMobId)
                     .mythicMobEntries(mobEntries)
+                    .displayName(displayName)
                     .randomSpawn(randomSpawn)
                     .expireSeconds(expireSeconds)
                     .clearOnExpire(clearOnExpire)
@@ -244,7 +266,7 @@ public class ScheduleManager {
                 try {
                     double weight = Double.parseDouble(possibleWeight);
                     String mobId = trimmed.substring(0, lastSpace).trim();
-                    entries.add(new MobEntry(mobId, weight));
+                    entries.add(new MobEntry(mobId, weight, 0));
                     continue;
                 } catch (NumberFormatException ignored) {
                     // Not a number — entire string is the mob ID (may contain spaces)
@@ -252,7 +274,24 @@ public class ScheduleManager {
             }
 
             // No weight, just mob ID
-            entries.add(new MobEntry(trimmed, 0));
+            entries.add(new MobEntry(trimmed, 0, 0));
+        }
+        return entries;
+    }
+
+    /**
+     * Parse a YAML map section into MobEntry list with per-mob expire times.
+     * Format:
+     *   mythicmob:
+     *     BossA: 20    ← expire in minutes (0 = use global)
+     *     BossB: 30
+     * Automatically enables random spawn when multiple entries exist.
+     */
+    private List<MobEntry> parseMobEntriesFromSection(ConfigurationSection section) {
+        List<MobEntry> entries = new ArrayList<>();
+        for (String mobId : section.getKeys(false)) {
+            int expireMinutes = section.getInt(mobId, 0);
+            entries.add(new MobEntry(mobId, 0, expireMinutes));
         }
         return entries;
     }

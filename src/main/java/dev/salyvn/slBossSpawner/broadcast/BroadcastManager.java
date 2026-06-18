@@ -28,7 +28,7 @@ public class BroadcastManager {
     public void broadcastDeath(BossConfig config, String killerName, String bossDisplayName) {
         var mm = plugin.getMessageManager();
         Map<String, String> placeholders = Map.of(
-            "boss_name", bossDisplayName != null ? bossDisplayName : config.getMythicMobId(),
+            "boss_name", bossDisplayName != null ? bossDisplayName : config.getDisplayName(),
             "killer_name", killerName != null ? killerName : ""
         );
 
@@ -63,7 +63,7 @@ public class BroadcastManager {
     public void broadcastSpawnWarning(BossConfig config, int minutesRemaining) {
         var mm = plugin.getMessageManager();
         Map<String, String> placeholders = new java.util.HashMap<>();
-        placeholders.put("boss_name", config.getMythicMobId());
+        placeholders.put("boss_name", config.getDisplayName());
         placeholders.put("time_remaining", minutesRemaining + mm.getRawMessage("time-unit-minutes"));
 
         if (config.isSpawnWarningChat()) {
@@ -93,7 +93,7 @@ public class BroadcastManager {
      */
     public BossBar createSpawnBossBar(BossConfig config) {
         var mm = plugin.getMessageManager();
-        Map<String, String> placeholders = Map.of("boss_name", config.getMythicMobId());
+        Map<String, String> placeholders = Map.of("boss_name", config.getDisplayName());
         String text = mm.getRawMessage("spawn-warning-bossbar", new java.util.HashMap<>(placeholders));
 
         return BossBar.bossBar(
@@ -125,7 +125,7 @@ public class BroadcastManager {
         var mm = plugin.getMessageManager();
         Map<String, String> placeholders = new java.util.HashMap<>();
         placeholders.put("boss_name",
-                bossDisplayName != null ? bossDisplayName : config.getMythicMobId());
+                bossDisplayName != null ? bossDisplayName : config.getDisplayName());
 
         String header = mm.getRawMessage(headerKey, placeholders);
         String footer = mm.getRawMessage(footerKey, placeholders);
