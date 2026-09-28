@@ -6,6 +6,10 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -53,6 +57,22 @@ public class MessageManager {
         messageConfig = YamlConfiguration.loadConfiguration(messageFile);
         messages.clear();
 
+        // Existing server message files are not overwritten on upgrade. Seed
+        // bundled keys first so new messages still have a usable fallback.
+        try (InputStream stream = plugin.getResource(fileName)) {
+            if (stream != null) {
+                YamlConfiguration bundled = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(stream, StandardCharsets.UTF_8));
+                for (String key : bundled.getKeys(false)) {
+                    messages.put(key, bundled.getString(key, ""));
+                }
+            }
+        } catch (IOException e) {
+            plugin.getLogger().warning("Could not read bundled messages from " + fileName
+                    + ": " + e.getMessage());
+        }
+
+        // Server customizations take precedence over bundled defaults.
         for (String key : messageConfig.getKeys(false)) {
             messages.put(key, messageConfig.getString(key, ""));
         }

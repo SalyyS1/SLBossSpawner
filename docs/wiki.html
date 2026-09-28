@@ -281,7 +281,7 @@
 <aside class="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo"><span class="sl">SL</span><span class="bs">BossSpawner</span></div>
-    <div class="sidebar-ver">v3.0.0 &mdash; MythicMobs Integration</div>
+    <div class="sidebar-ver">v3.0.1 &mdash; MythicMobs Integration</div>
   </div>
   <nav>
     <div class="nav-group" lang-en>Getting Started</div>
@@ -322,7 +322,7 @@
   <p class="tagline" lang-en>A powerful scheduled boss spawner with MythicMobs integration, player performance tracking, and a tiered reward system.</p>
   <p class="tagline" lang-vi>Plugin triệu hồi Boss theo lịch, tích hợp MythicMobs, theo dõi đóng góp người chơi và chia thưởng theo bảng xếp hạng.</p>
   <div class="hero-badges">
-    <span class="badge badge-red">Paper/Spigot 1.21+</span>
+    <span class="badge badge-red">Paper 1.21.11</span>
     <span class="badge badge-gold">MythicMobs 5.x</span>
     <span class="badge badge-green">Java 21</span>
     <span class="badge badge-blue">PlaceholderAPI</span>
@@ -370,15 +370,15 @@
 <h2 id="installation"><span lang-en>Installation</span><span lang-vi>Cài đặt</span></h2>
 
 <ul class="checklist" lang-en>
-  <li><span class="check">+</span> <span>Install <strong>MythicMobs 5.x</strong> (required dependency)</span></li>
-  <li><span class="check">+</span> <span>Place <code>SLBossSpawner-2.0.0.jar</code> into <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Use <strong>Paper 1.21.11 / Java 21</strong> and install <strong>MythicMobs 5.13.0</strong></span></li>
+  <li><span class="check">+</span> <span>Place <code>SLBossSpawner-3.0.1.jar</code> into <code>plugins/</code></span></li>
   <li><span class="check">+</span> <span>Restart the server &mdash; config files are generated automatically</span></li>
   <li><span class="check">+</span> <span>Edit configs in <code>plugins/SLBossSpawner/</code></span></li>
   <li><span class="check">+</span> <span>Run <code>/slboss reload</code> to apply changes</span></li>
 </ul>
 <ul class="checklist" lang-vi>
-  <li><span class="check">+</span> <span>Cài <strong>MythicMobs 5.x</strong> (bắt buộc phải có)</span></li>
-  <li><span class="check">+</span> <span>Bỏ file <code>SLBossSpawner-2.0.0.jar</code> vào thư mục <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Dùng <strong>Paper 1.21.11 / Java 21</strong> và cài <strong>MythicMobs 5.13.0</strong></span></li>
+  <li><span class="check">+</span> <span>Bỏ file <code>SLBossSpawner-3.0.1.jar</code> vào thư mục <code>plugins/</code></span></li>
   <li><span class="check">+</span> <span>Restart server &mdash; các file config sẽ được tạo tự động</span></li>
   <li><span class="check">+</span> <span>Chỉnh cấu hình trong <code>plugins/SLBossSpawner/</code></span></li>
   <li><span class="check">+</span> <span>Gõ <code>/slboss reload</code> để áp dụng</span></li>
@@ -469,13 +469,20 @@
         <tr><td><code>time-settings.time</code></td><td lang-en>Spawn times (HH:mm)</td><td lang-vi>Giờ triệu hồi (HH:mm)</td><td>List</td></tr>
         <tr><td><code>location.*</code></td><td lang-en>Spawn coordinates + world</td><td lang-vi>Toạ độ spawn + world</td><td>Number/String</td></tr>
         <tr><td><code>leashRadius</code></td><td lang-en>Max distance from spawn</td><td lang-vi>Khoảng cách tối đa Boss đi được tính từ điểm spawn</td><td>Integer</td></tr>
-        <tr><td><code>loadChunks</code></td><td lang-en>Force chunk load on spawn</td><td lang-vi>Buộc load chunk khi spawn Boss</td><td>Boolean</td></tr>
+        <tr><td><code>loadChunks</code></td><td lang-en><code>true</code> loads and holds the spawn chunk with a plugin ticket until boss cleanup; <code>false</code> requires it to be loaded already</td><td lang-vi><code>true</code> tải và giữ chunk bằng plugin ticket tới khi dọn boss; <code>false</code> yêu cầu chunk đã được tải sẵn</td><td>Boolean</td></tr>
         <tr><td><code>broadcast.*</code></td><td lang-en>Toggle chat/title/bossbar</td><td lang-vi>Bật/tắt chat, title, bossbar</td><td>Boolean</td></tr>
         <tr><td><code>intervals</code></td><td lang-en>Warning minutes before spawn</td><td lang-vi>Số phút cảnh báo trước khi spawn</td><td>List&lt;Integer&gt;</td></tr>
       </tbody>
     </table>
   </div>
 </details>
+
+<!-- SPAWN TROUBLESHOOTING -->
+<div class="callout callout-info">
+  <strong lang-en>Spawn location checks</strong><strong lang-vi>Kiểm tra vị trí spawn</strong>
+  <span lang-en>If <code>loadChunks: false</code>, the spawn chunk must already be loaded and may unload later. Use <code>loadChunks: true</code> for a remote arena. The plugin checks the spawned entity after one second and logs its actual world and coordinates or why it disappeared. A MythicMobs skill can also move or remove a mob after a successful spawn call.</span>
+  <span lang-vi>Nếu <code>loadChunks: false</code>, chunk spawn phải được tải sẵn và có thể bị dỡ tải sau đó. Dùng <code>loadChunks: true</code> cho arena ở xa. Plugin kiểm tra entity sau một giây rồi ghi thế giới, tọa độ thực tế hoặc lý do nó biến mất. Skill MythicMobs cũng có thể di chuyển hoặc xoá mob sau khi lệnh spawn thành công.</span>
+</div>
 
 <!-- REWARD.YML -->
 <h2 id="rewards-config">reward.yml</h2>
@@ -507,6 +514,70 @@
             <span class="key">material</span>: <span class="str">DIAMOND</span>
             <span class="key">amount</span>: <span class="num">5</span>
             <span class="key">display-name</span>: <span class="str">"&amp;#FFD93D&amp;lTop 1 Damage"</span></pre>
+
+<details>
+  <summary lang-en>Five damage ranks with CMI command rewards</summary>
+  <summary lang-vi>Ví dụ thưởng lệnh CMI cho 5 hạng sát thương</summary>
+  <div class="detail-body">
+<pre>boss2:
+  enabled: true
+  damage:
+    enabled: true
+    tiers:
+      1:
+        multiplier: 1.0
+        commands:
+          - "cmi saveditems get ruinbladeboss -t:{player}"
+          - "cmi money give {player} 10000"
+      2:
+        multiplier: 1.0
+        commands:
+          - "cmi saveditems get ruinbladeboss -t:{player}"
+          - "cmi money give {player} 5000"
+      3:
+        multiplier: 1.0
+        commands:
+          - "cmi saveditems get ruinbladeboss -t:{player}"
+          - "cmi money give {player} 2500"
+      4:
+        multiplier: 1.0
+        commands:
+          - "cmi saveditems get ruinbladeboss -t:{player}"
+          - "cmi money give {player} 1000"
+      5:
+        multiplier: 1.0
+        commands:
+          - "cmi saveditems get ruinbladeboss -t:{player}"
+          - "cmi money give {player} 500"</pre>
+  <p lang-en>Use the same <code>tiers</code> structure under <code>tank</code> for tank rewards. Ranks 1–5 receive their matching tier only when five players have tracked contribution in that category. Set <code>debug: true</code> in <code>config.yml</code> to log the ranked participant count, loaded tier count, and each rewarded or skipped rank.</p>
+  <p lang-vi>Dùng cấu trúc <code>tiers</code> tương tự dưới <code>tank</code> để thưởng hạng chịu đòn. Hạng 1–5 chỉ nhận bậc tương ứng khi có năm người được ghi nhận đóng góp trong hạng mục đó. Bật <code>debug: true</code> trong <code>config.yml</code> để xem số người xếp hạng, số bậc đã tải, và hạng nào được thưởng hoặc bỏ qua.</p>
+  <p lang-en><code>{player}</code> is the player's exact current name, including Floodgate's default <code>.</code> prefix and digits. CMI's <code>-t:{player}</code> syntax passes that name to <code>saveditems get</code>. Names must contain only letters, digits, underscores, periods, or hyphens. Other custom Floodgate prefix characters are rejected and logged.</p>
+  <p lang-vi><code>{player}</code> là tên hiện tại chính xác, gồm dấu <code>.</code> mặc định của Floodgate và chữ số. Cú pháp CMI <code>-t:{player}</code> truyền tên đó cho <code>saveditems get</code>. Tên chỉ được chứa chữ cái, chữ số, dấu gạch dưới, dấu chấm hoặc dấu gạch ngang. Tiền tố Floodgate tuỳ chỉnh dùng ký tự khác sẽ bị từ chối và ghi log.</p>
+  </div>
+</details>
+
+<details>
+  <summary lang-en>Optional random loot within a rank tier</summary>
+  <summary lang-vi>Thưởng ngẫu nhiên tuỳ chọn trong mỗi bậc</summary>
+  <div class="detail-body">
+<pre># Place under boss2.damage.tiers.1 (or another category/rank)
+random-loot:
+  enabled: true
+  rolls: 1
+  entries:
+    - type: vanilla
+      material: NETHERITE_INGOT
+      amount: 1
+      weight: 5
+      chance: 25
+    - type: command
+      command: "cmi money give {player} 10000"
+      weight: 1
+      chance: 10</pre>
+  <p lang-en>With <code>rolls &gt; 0</code>, each roll selects one entry by <code>weight</code>, then checks its <code>chance</code> (0 or omitted means guaranteed after selection). With <code>rolls: 0</code>, each entry rolls its own <code>chance</code> once. Entries also support <code>type: droptable</code> with <code>drop-table</code>.</p>
+  <p lang-vi>Với <code>rolls &gt; 0</code>, mỗi lượt chọn một mục theo <code>weight</code>, rồi kiểm tra <code>chance</code> (0 hoặc bỏ trống sẽ nhận chắc chắn sau khi được chọn). Với <code>rolls: 0</code>, mỗi mục tự quay <code>chance</code> một lần. Có thể dùng <code>type: droptable</code> cùng <code>drop-table</code>.</p>
+  </div>
+</details>
 
 <details>
   <summary lang-en>Item Type Examples (Vanilla / MMOItems / MythicMobs)</summary>
@@ -550,6 +621,7 @@
         <tr><td><code>tiers.N.commands</code></td><td lang-en>Console commands (<code>{player}</code> placeholder)</td><td lang-vi>Lệnh console (dùng <code>{player}</code> thay tên người chơi)</td></tr>
         <tr><td><code>tiers.N.drop-tables</code></td><td lang-en>MythicMobs drop tables to execute</td><td lang-vi>Bảng loot MythicMobs sẽ được chạy</td></tr>
         <tr><td><code>tiers.N.items</code></td><td lang-en>Item rewards (vanilla/mmoitems/mythicmobs)</td><td lang-vi>Vật phẩm thưởng (vanilla, MMOItems hoặc MythicMobs)</td></tr>
+        <tr><td><code>tiers.N.random-loot</code></td><td lang-en>Optional weighted or independent-chance item, command, and drop-table rewards</td><td lang-vi>Thưởng vật phẩm, lệnh và bảng loot ngẫu nhiên theo trọng số hoặc tỉ lệ độc lập</td></tr>
       </tbody>
     </table>
   </div>
@@ -632,6 +704,9 @@
   <li><strong>Hàng đợi offline</strong> &mdash; Người chơi đang offline sẽ nhận thưởng khi đăng nhập lại</li>
 </ol>
 
+<p lang-en>Pending rewards are created only for recipients who are offline when the boss dies. For online recipients, command output and warnings appear in the server console; CMI can still reject a player name after Bukkit accepts the dispatch. If fewer than five players were tracked, only those ranked players can receive tiers 1–5. The reported two-of-five case has no confirmed cause without these server logs.</p>
+<p lang-vi>Chỉ người đang offline lúc boss chết mới có phần thưởng chờ. Với người online, kết quả và cảnh báo lệnh nằm trong console; CMI vẫn có thể từ chối tên sau khi Bukkit nhận lệnh. Nếu chỉ ghi nhận dưới năm người, chỉ các hạng thực tế trong số 1–5 được nhận thưởng. Cần log server để xác định nguyên nhân thật của trường hợp chỉ nhận hai trên năm phần thưởng.</p>
+
 <div class="callout callout-tip">
   <strong lang-en>Tip: Reward Types</strong><strong lang-vi>Gợi ý: Kết hợp phần thưởng</strong>
   <span lang-en>You can combine <strong>commands</strong>, <strong>drop tables</strong>, and <strong>items</strong> (vanilla/MMOItems/MythicMobs) freely within each tier.</span>
@@ -680,12 +755,14 @@
 <h2 id="persistence"><span lang-en>Persistence</span><span lang-vi>Lưu trữ dữ liệu</span></h2>
 
 <h3 lang-en>Boss State</h3><h3 lang-vi>Trạng thái Boss</h3>
-<p lang-en>Active bosses are saved to <code>boss-state.yml</code> and restored on server restart. If a boss expired during downtime, it's skipped and rescheduled.</p>
-<p lang-vi>Boss đang hoạt động sẽ được lưu vào <code>boss-state.yml</code>. Khi server khởi động lại, Boss sẽ được phục hồi. Nếu đã hết hạn trong lúc tắt server thì bỏ qua và lên lịch mới.</p>
+<p lang-en>Active bosses are saved to <code>boss-state.yml</code> and restored on server restart. An expired boss is removed and rescheduled after its saved entity is verified. If an old state row has no saved location and cannot be verified, scheduled spawns pause. After checking that the old mob is gone, an operator can run <code>/slboss state forget &lt;bossId&gt;</code> to release it.</p>
+<p lang-vi>Boss đang hoạt động được lưu vào <code>boss-state.yml</code> và phục hồi sau restart. Boss hết hạn được xóa và lên lịch mới sau khi xác minh entity cũ. Nếu trạng thái cũ không có vị trí và không thể xác minh, lượt spawn theo lịch sẽ tạm dừng. Sau khi kiểm tra boss cũ đã biến mất, quản trị viên dùng <code>/slboss state forget &lt;bossId&gt;</code> để mở lại.</p>
 
 <h3 lang-en>Offline Rewards</h3><h3 lang-vi>Phần thưởng khi offline</h3>
 <p lang-en>Rewards for offline players are saved to <code>pending-rewards.yml</code> and automatically delivered when the player joins (2-second delay for safe loading).</p>
 <p lang-vi>Nếu người chơi offline lúc nhận thưởng, phần thưởng sẽ được lưu vào <code>pending-rewards.yml</code>. Khi họ vào lại server, hệ thống tự động trao sau 2 giây (chờ load xong cho chắc).</p>
+<p lang-en>Legacy pending CMI saveditems/money and Mythic drop-table commands with stripped Bedrock names are repaired when the known player target matches the joining player's UUID. Review other custom pending commands before affected players join.</p>
+<p lang-vi>Lệnh CMI saveditems/money và Mythic drop-table cũ có tên Bedrock bị mất tiền tố sẽ được sửa khi xác định đúng mục tiêu theo UUID người đăng nhập. Hãy kiểm tra các lệnh tuỳ chỉnh cũ trong hàng đợi trước khi người chơi liên quan đăng nhập.</p>
 
 <!-- STATISTICS -->
 <h2 id="statistics"><span lang-en>Statistics & Leaderboard</span><span lang-vi>Thống kê & Bảng xếp hạng</span></h2>
@@ -742,6 +819,9 @@
     refresh-seconds: 60
     leaderboard-size: 100</code></pre>
 
+<p lang-en>MySQL statistics storage supports MySQL Server 5.7 or later. The plugin JAR includes Connector/J; no separate driver JAR is needed.</p>
+<p lang-vi>Chế độ lưu thống kê MySQL hỗ trợ MySQL Server 5.7 trở lên. File plugin đã chứa Connector/J; không cần thêm file driver riêng.</p>
+
 <!-- COMMANDS -->
 <h2 id="commands"><span lang-en>Commands</span><span lang-vi>Lệnh</span></h2>
 
@@ -766,6 +846,11 @@
       <td><code>/slboss reload</code></td>
       <td><code>slboss.reload</code></td>
       <td lang-en>Reload all config files</td><td lang-vi>Tải lại tất cả file cấu hình</td>
+    </tr>
+    <tr>
+      <td><code>/slboss state forget &lt;bossId&gt;</code></td>
+      <td><code>slboss.state</code></td>
+      <td lang-en>Release unverified saved state after checking the old mob</td><td lang-vi>Xóa trạng thái chưa xác minh sau khi kiểm tra boss cũ</td>
     </tr>
     <tr>
       <td><code>/slboss spawn [id]</code></td>
@@ -945,7 +1030,7 @@
     <tr>
       <td><code>slboss.info</code></td>
       <td lang-en>View boss info & list</td><td lang-vi>Xem thông tin và danh sách Boss</td>
-      <td><code>op</code></td>
+      <td><code>true</code></td>
     </tr>
     <tr>
       <td><code>slboss.spawn</code></td>
@@ -963,6 +1048,11 @@
       <td><code>op</code></td>
     </tr>
     <tr>
+      <td><code>slboss.state</code></td>
+      <td lang-en>Forget unresolved saved boss state</td><td lang-vi>Xóa trạng thái boss chưa khôi phục</td>
+      <td><code>op</code></td>
+    </tr>
+    <tr>
       <td><code>slboss.stats</code></td>
       <td lang-en>View player statistics</td><td lang-vi>Xem thống kê người chơi</td>
       <td><code>true</code></td>
@@ -977,6 +1067,48 @@
 
 <!-- CHANGELOG -->
 <h2 id="changelog"><span lang-en>Changelog</span><span lang-vi>Nhật ký thay đổi</span></h2>
+
+<h3>v3.0.1 <span style="color:var(--text-muted)">(2026-09-29)</span></h3>
+<h4 lang-en>Fixed</h4><h4 lang-vi>Sửa lỗi</h4>
+<ul>
+  <li lang-en>Keep remote spawn chunks loaded with a plugin ticket when <code>loadChunks: true</code>; reject an unloaded chunk when disabled</li>
+  <li lang-vi>Giữ chunk spawn bằng plugin ticket khi <code>loadChunks: true</code>; từ chối spawn vào chunk chưa tải khi tắt</li>
+  <li lang-en>Verify the MythicMobs entity after one second and log its actual position or disappearance</li>
+  <li lang-vi>Kiểm tra entity MythicMobs sau một giây và ghi vị trí thực tế hoặc việc nó biến mất</li>
+  <li lang-en>Record each boss's last known position and serialize state-file writes to prevent update races</li>
+  <li lang-vi>Ghi vị trí cuối cùng đã biết của boss và ghi file trạng thái theo thứ tự để tránh ghi đè lẫn nhau</li>
+  <li lang-en>Keep live bosses and fight rankings through <code>/slboss reload</code>; preserve entities and state on plugin disable</li>
+  <li lang-vi>Giữ boss và bảng xếp hạng trận đấu khi chạy <code>/slboss reload</code>; giữ entity và trạng thái khi tắt plugin</li>
+  <li lang-en>Reserve unresolved saved boss slots, with <code>/slboss state forget &lt;bossId&gt;</code> for checked legacy state</li>
+  <li lang-vi>Giữ chỗ cho boss chưa khôi phục và thêm <code>/slboss state forget &lt;bossId&gt;</code> cho trạng thái cũ đã kiểm tra</li>
+  <li lang-en>Warn and skip invalid rank keys; valid tiers 1–5 still match ranked players, with new participant and tier debug counts</li>
+  <li lang-vi>Cảnh báo và bỏ qua khoá hạng sai; bậc hợp lệ 1–5 vẫn ghép người xếp hạng, kèm log số người và số bậc</li>
+  <li lang-en>Track skill damage and tanking through the final damage event's causing entity where available</li>
+  <li lang-vi>Ghi nhận sát thương skill và chịu đòn qua nguồn gây sát thương ở sự kiện cuối khi server cung cấp</li>
+  <li lang-en>Preserve exact player names, including Floodgate's default dot prefix and digits, in CMI command rewards and offline delivery</li>
+  <li lang-vi>Giữ nguyên tên người chơi, gồm dấu chấm mặc định của Floodgate và chữ số, khi chạy lệnh CMI và trả thưởng offline</li>
+  <li lang-en>Repair known CMI and Mythic drop-table commands queued by older releases when their stripped target matches the joining player</li>
+  <li lang-vi>Sửa lệnh CMI và Mythic drop-table cũ trong hàng đợi khi tên đã bỏ tiền tố khớp người đăng nhập</li>
+  <li lang-en>Repair shaded SQLite JDBC driver discovery and native loading</li>
+  <li lang-vi>Sửa việc tìm driver và tải thư viện native của SQLite JDBC trong file plugin đã đóng gói</li>
+  <li lang-en>Bundle MySQL Connector/J 8.2.0 and merge both JDBC driver registrations for MySQL and SQLite</li>
+  <li lang-vi>Đóng gói MySQL Connector/J 8.2.0 và gộp đăng ký driver JDBC cho MySQL và SQLite</li>
+  <li lang-en>Recheck MySQL index metadata when concurrent initializers create the same index</li>
+  <li lang-vi>Kiểm tra lại metadata chỉ mục MySQL khi nhiều tiến trình cùng tạo một chỉ mục</li>
+  <li lang-en>Widen MySQL statistics player-name columns for Floodgate-prefixed gamertags</li>
+  <li lang-vi>Mở rộng cột tên người chơi trong thống kê MySQL cho gamertag có tiền tố Floodgate</li>
+  <li lang-en>Write pending rewards in order after a one-tick debounce, preventing stale file snapshots</li>
+  <li lang-vi>Ghi thưởng chờ theo thứ tự sau một tick gộp thay đổi, tránh dữ liệu file cũ ghi đè</li>
+</ul>
+<h4 lang-en>Updated APIs</h4><h4 lang-vi>Cập nhật API</h4>
+<ul>
+  <li lang-en>Add optional weighted or independent-chance <code>random-loot</code> entries within reward tiers</li>
+  <li lang-vi>Thêm <code>random-loot</code> tuỳ chọn theo trọng số hoặc tỉ lệ độc lập trong mỗi bậc thưởng</li>
+  <li lang-en>Make base <code>/slboss</code> help available to all players while keeping admin actions permission-guarded</li>
+  <li lang-vi>Cho mọi người xem trợ giúp <code>/slboss</code> nhưng vẫn giữ quyền riêng cho lệnh quản trị</li>
+  <li lang-en>Target Paper 1.21.11 / Java 21; compile against MythicMobs 5.13.0, PlaceholderAPI 2.12.3, and MMOItems 6.10.1-SNAPSHOT</li>
+  <li lang-vi>Chuyển sang Paper 1.21.11 / Java 21; biên dịch với MythicMobs 5.13.0, PlaceholderAPI 2.12.3 và MMOItems 6.10.1-SNAPSHOT</li>
+</ul>
 
 <h3>v3.0.0 <span style="color:var(--text-muted)">(2026-02-27)</span></h3>
 <div class="callout callout-info">
@@ -1034,7 +1166,7 @@
 
 <!-- Footer -->
 <div class="footer">
-  SLBossSpawner v3.0.0 &mdash; Author: <strong>SalyVn</strong>
+  SLBossSpawner v3.0.1 &mdash; Author: <strong>SalyVn</strong>
 </div>
 
 </main>

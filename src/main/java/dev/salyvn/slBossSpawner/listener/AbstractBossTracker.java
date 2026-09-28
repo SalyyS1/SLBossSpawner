@@ -23,8 +23,10 @@ public abstract class AbstractBossTracker<E> implements Listener {
 
     public void startTracking(UUID bossEntityUuid) {
         trackedBosses.add(bossEntityUuid);
-        dataMap.put(bossEntityUuid, new HashMap<>());
-        nameCache.put(bossEntityUuid, new HashMap<>());
+        // A config reload reattaches the same live boss. Keep fight credit already
+        // accumulated for that UUID instead of resetting its rankings.
+        dataMap.computeIfAbsent(bossEntityUuid, ignored -> new HashMap<>());
+        nameCache.computeIfAbsent(bossEntityUuid, ignored -> new HashMap<>());
         plugin.debug("Started " + getTrackerName() + " tracking for boss entity: " + bossEntityUuid);
     }
 

@@ -42,8 +42,22 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(messageManager.getMessage("no-permission"));
                     return true;
                 }
-                plugin.reload();
-                sender.sendMessage(messageManager.getMessage("reload-success"));
+                sender.sendMessage(messageManager.getMessage(
+                        plugin.reload() ? "reload-success" : "reload-failed"));
+            }
+            case "state" -> {
+                if (!sender.hasPermission("slboss.state")) {
+                    sender.sendMessage(messageManager.getMessage("no-permission"));
+                    return true;
+                }
+                if (args.length != 3 || !"forget".equalsIgnoreCase(args[1])) {
+                    sender.sendMessage(messageManager.getMessage("state-forget-usage"));
+                    return true;
+                }
+                boolean forgotten = plugin.getBossScheduler().forgetSavedBossState(args[2]);
+                sender.sendMessage(messageManager.getMessage(
+                        forgotten ? "state-forget-success" : "state-forget-failed",
+                        Map.of("boss_id", args[2])));
             }
             case "spawn" -> {
                 if (!sender.hasPermission("slboss.spawn")) {
@@ -52,14 +66,17 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                 }
 
                 if (args.length < 2) {
-                    plugin.getBossScheduler().forceSpawnAll();
-                    sender.sendMessage(messageManager.getMessage("boss-spawned-all"));
+                    int total = plugin.getBossScheduler().getAllBossInstances().size();
+                    int accepted = plugin.getBossScheduler().forceSpawnAll();
+                    sender.sendMessage(messageManager.getMessage("boss-spawn-summary", Map.of(
+                            "accepted", Integer.toString(accepted),
+                            "total", Integer.toString(total),
+                            "skipped", Integer.toString(total - accepted))));
                 } else {
                     String bossId = args[1];
-                    plugin.getBossScheduler().forceSpawn(bossId);
+                    boolean spawned = plugin.getBossScheduler().forceSpawn(bossId);
 
-                    // M8 FIX: only send success message if boss actually spawned
-                    if (plugin.getBossScheduler().hasBoss(bossId)) {
+                    if (spawned) {
                         Map<String, String> placeholders = new HashMap<>();
                         placeholders.put("boss_id", bossId);
                         sender.sendMessage(messageManager.getMessage("boss-spawned-single", placeholders));
@@ -77,15 +94,21 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                 }
 
                 if (args.length < 2) {
-                    plugin.getBossScheduler().despawnAll();
-                    sender.sendMessage(messageManager.getMessage("boss-despawned-all"));
+                    int total = plugin.getBossScheduler().getAllBossInstances().size();
+                    int processed = plugin.getBossScheduler().despawnAll();
+                    sender.sendMessage(messageManager.getMessage("boss-despawn-summary", Map.of(
+                            "processed", Integer.toString(processed),
+                            "total", Integer.toString(total),
+                            "skipped", Integer.toString(total - processed))));
                 } else {
                     String bossId = args[1];
-                    plugin.getBossScheduler().despawn(bossId);
+                    boolean despawned = plugin.getBossScheduler().despawn(bossId);
 
                     Map<String, String> placeholders = new HashMap<>();
                     placeholders.put("boss_id", bossId);
-                    sender.sendMessage(messageManager.getMessage("boss-despawned-single", placeholders));
+                    sender.sendMessage(messageManager.getMessage(
+                            despawned ? "boss-despawned-single" : "boss-despawn-failed",
+                            placeholders));
                 }
             }
             case "list" -> {
@@ -123,12 +146,14 @@ public class BossCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender) {
-        String version = plugin.getDescription().getVersion();
+        String version = plugin.getPluginMeta().getVersion();
         sender.sendMessage(messageManager.getMessage("help-header", Map.of("version", version)));
         sender.sendMessage(messageManager.getMessage("help-usage"));
         sender.sendMessage("");
         if (sender.hasPermission("slboss.reload"))
             sender.sendMessage(messageManager.getMessage("help-reload"));
+        if (sender.hasPermission("slboss.state"))
+            sender.sendMessage(messageManager.getMessage("help-state-forget"));
         if (sender.hasPermission("slboss.spawn"))
             sender.sendMessage(messageManager.getMessage("help-spawn"));
         if (sender.hasPermission("slboss.despawn"))
@@ -215,14 +240,26 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             List<String> completions = new ArrayList<>();
             String input = args[0].toLowerCase();
 
-            List<String> subcommands = Arrays.asList("help", "reload", "spawn", "despawn", "info", "list", "stats", "top");
+            List<String> subcommands = Arrays.asList("help", "reload", "state", "spawn", "despawn", "info", "list", "stats", "top");
             for (String sub : subcommands) {
-                if (sub.startsWith(input)) {
+                if (sub.startsWith(input) && (!sub.equals("state") || sender.hasPermission("slboss.state"))) {
                     completions.add(sub);
                 }
             }
 
             return completions;
+        }
+
+        if (args[0].equalsIgnoreCase("state") && sender.hasPermission("slboss.state")) {
+            if (args.length == 2) {
+                return "forget".startsWith(args[1].toLowerCase())
+                        ? List.of("forget") : List.of();
+            }
+            if (args.length == 3 && "forget".equalsIgnoreCase(args[1])) {
+                return plugin.getBossScheduler().getAllBossInstances().keySet().stream()
+                        .filter(id -> id.toLowerCase().startsWith(args[2].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
         }
 
         if (args.length == 2 && (args[0].equalsIgnoreCase("spawn") || args[0].equalsIgnoreCase("despawn"))) {

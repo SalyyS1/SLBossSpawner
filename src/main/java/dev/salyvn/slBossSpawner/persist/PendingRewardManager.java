@@ -56,6 +56,17 @@ public class PendingRewardManager {
         return rewards != null ? rewards : List.of();
     }
 
+    /** Put undelivered rewards back ahead of rewards queued during delivery. */
+    public void requeueRewards(UUID playerUuid, List<PendingReward> rewards) {
+        if (rewards == null || rewards.isEmpty()) return;
+        pendingRewards.compute(playerUuid, (uuid, current) -> {
+            List<PendingReward> combined = new ArrayList<>(rewards);
+            if (current != null) combined.addAll(current);
+            return combined;
+        });
+        save();
+    }
+
     public boolean hasPending(UUID playerUuid) {
         List<PendingReward> list = pendingRewards.get(playerUuid);
         return list != null && !list.isEmpty();
@@ -137,14 +148,14 @@ public class PendingRewardManager {
     }
 
     private void saveNow() {
+        // Debouncing already coalesces updates. Write in order so an older async
+        // snapshot cannot overwrite rewards claimed or queued in a later tick.
         YamlConfiguration yaml = buildYaml();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                yaml.save(pendingFile);
-            } catch (IOException e) {
-                plugin.getLogger().severe("Failed to save pending rewards: " + e.getMessage());
-            }
-        });
+        try {
+            yaml.save(pendingFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save pending rewards: " + e.getMessage());
+        }
     }
 
     private YamlConfiguration buildYaml() {

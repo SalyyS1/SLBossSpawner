@@ -3,6 +3,8 @@ package dev.salyvn.slBossSpawner.reward;
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossConfig;
 import dev.salyvn.slBossSpawner.boss.BossConfig.ItemRewardConfig;
+import dev.salyvn.slBossSpawner.boss.BossConfig.RandomLootConfig;
+import dev.salyvn.slBossSpawner.boss.BossConfig.RandomLootEntry;
 import dev.salyvn.slBossSpawner.boss.BossConfig.RewardTierConfig;
 import dev.salyvn.slBossSpawner.listener.DamageResult;
 import dev.salyvn.slBossSpawner.listener.SupportResult;
@@ -14,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Distributes rewards per category (damage, tank, support) when a boss dies.
@@ -51,7 +54,6 @@ public class RewardManager {
                         return ph;
                     },
                     entry -> ((DamageResult.PlayerDamageEntry) entry).playerUuid(),
-                    entry -> ((DamageResult.PlayerDamageEntry) entry).playerName(),
                     (tier, entry) -> {
                         // Apply last-hit multiplier for damage category only
                         double mult = tier.multiplier() * config.getGlobalMultiplier();
@@ -78,7 +80,6 @@ public class RewardManager {
                         return ph;
                     },
                     entry -> ((TankResult.PlayerTankEntry) entry).playerUuid(),
-                    entry -> ((TankResult.PlayerTankEntry) entry).playerName(),
                     (tier, entry) -> tier.multiplier() * config.getGlobalMultiplier());
         }
 
@@ -97,7 +98,6 @@ public class RewardManager {
                         return ph;
                     },
                     entry -> ((SupportResult.PlayerSupportEntry) entry).playerUuid(),
-                    entry -> ((SupportResult.PlayerSupportEntry) entry).playerName(),
                     (tier, entry) -> tier.multiplier() * config.getGlobalMultiplier());
         }
     }
@@ -114,9 +114,10 @@ public class RewardManager {
             String headerKey, String footerKey, String entryKey,
             java.util.function.Function<E, Map<String, String>> placeholderBuilder,
             java.util.function.Function<E, UUID> uuidExtractor,
-            java.util.function.Function<E, String> nameExtractor,
             java.util.function.BiFunction<RewardTierConfig, E, Double> multiplierResolver) {
 
+        plugin.debug("Reward distribution " + entryKey + ": participants=" + rankings.size()
+                + ", configured tiers=" + tiers.size());
         if (tiers.isEmpty()) return;
 
         var mm = plugin.getMessageManager();
@@ -131,12 +132,17 @@ public class RewardManager {
         // Distribute per-tier
         for (RewardTierConfig tier : tiers) {
             int rankIndex = tier.rank() - 1;
-            if (rankIndex >= rankings.size()) continue;
+            if (rankIndex < 0 || rankIndex >= rankings.size()) {
+                plugin.debug("Skipping " + entryKey + " reward rank " + tier.rank()
+                        + ": no tracked participant at that rank");
+                continue;
+            }
 
             E entry = rankings.get(rankIndex);
             double effectiveMult = multiplierResolver.apply(tier, entry);
-            distributeRewardsToPlayer(config, tier, uuidExtractor.apply(entry),
-                    nameExtractor.apply(entry), effectiveMult);
+            UUID playerUuid = uuidExtractor.apply(entry);
+            plugin.debug("Rewarding " + entryKey + " rank " + tier.rank() + " to " + playerUuid);
+            distributeRewardsToPlayer(config, tier, playerUuid, effectiveMult);
         }
     }
 
@@ -145,13 +151,14 @@ public class RewardManager {
      * Shared across all categories.
      */
     private void distributeRewardsToPlayer(BossConfig config, RewardTierConfig tier,
-            UUID playerUuid, String playerName, double effectiveMult) {
+            UUID playerUuid, double effectiveMult) {
 
         Player player = Bukkit.getPlayer(playerUuid);
-
-        // H13 FIX: validate name with CommandValidator
-        String safeName = playerName.replaceAll("[^a-zA-Z0-9_]", "");
-        if (safeName.isEmpty()) return;
+        String safeName = RewardPlayerName.resolve(player);
+        if (player != null && safeName == null) {
+            plugin.getLogger().warning("Cannot use player name safely in reward commands for UUID "
+                    + playerUuid + "; command rewards will be skipped");
+        }
 
         // Commands
         for (String cmd : tier.commands()) {
@@ -160,37 +167,21 @@ public class RewardManager {
                 plugin.getLogger().warning("Blocked dangerous reward command: " + cmd);
                 continue;
             }
-            String resolved = cmd.replace("{player}", safeName);
             if (player != null) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved);
+                if (safeName != null) {
+                    dispatchRewardCommand(cmd.replace("{player}", safeName), playerUuid);
+                }
             } else {
-                plugin.getPendingRewardManager().queueCommand(playerUuid, resolved);
+                plugin.getPendingRewardManager().queueCommand(playerUuid, cmd);
             }
         }
 
         // Drop tables
+        int dropTableRuns = config.isMultiplyDropTables()
+                ? Math.max(1, (int) Math.round(effectiveMult))
+                : 1;
         for (String dropTable : tier.dropTables()) {
-            String safeTable = dropTable.replaceAll("[^a-zA-Z0-9_\\-.]", "");
-            if (safeTable.isEmpty()) {
-                plugin.getLogger().warning("Invalid drop table name after sanitization: " + dropTable);
-                continue;
-            }
-            if (player != null) {
-                try {
-                    String cmd = "mm items droptable " + safeTable + " 1 " + safeName;
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-                    plugin.debug("Executed drop table '" + dropTable + "' for " + safeName);
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Failed to give drop table '" + dropTable
-                            + "': " + e.getMessage());
-                }
-            } else {
-                // H14 FIX: queue drop tables for offline players
-                String cmd = "mm items droptable " + safeTable + " 1 {player}";
-                plugin.getPendingRewardManager().queueCommand(playerUuid,
-                        cmd.replace("{player}", safeName));
-                plugin.debug("Queued drop table '" + dropTable + "' for offline player " + safeName);
-            }
+            executeDropTable(player, playerUuid, safeName, dropTable, dropTableRuns);
         }
 
         // Items — H9 FIX: delegate to ItemFactory
@@ -205,6 +196,8 @@ public class RewardManager {
                 queueItemPending(playerUuid, itemConfig, amount);
             }
         }
+
+        rollRandomLoot(config, tier.randomLoot(), player, playerUuid, safeName, effectiveMult);
     }
 
     /** H9: Delegate item creation to ItemFactory. */
@@ -231,6 +224,133 @@ public class RewardManager {
             default ->
                 plugin.getPendingRewardManager().queueItem(
                         playerUuid, itemConfig.material(), itemConfig.displayName(), amount, null);
+        }
+    }
+
+    private void rollRandomLoot(BossConfig config, RandomLootConfig randomLoot, Player player,
+            UUID playerUuid, String safeName, double effectiveMult) {
+        if (randomLoot == null || !randomLoot.enabled() || randomLoot.entries().isEmpty()) return;
+
+        if (randomLoot.rolls() > 0) {
+            for (int i = 0; i < randomLoot.rolls(); i++) {
+                RandomLootEntry picked = pickWeighted(randomLoot.entries());
+                if (picked != null && rollChance(picked.chance() > 0 ? picked.chance() : 100.0)) {
+                    giveRandomLootEntry(config, picked, player, playerUuid, safeName, effectiveMult);
+                }
+            }
+            return;
+        }
+
+        for (RandomLootEntry entry : randomLoot.entries()) {
+            if (entry.chance() <= 0) continue;
+            if (rollChance(entry.chance())) {
+                giveRandomLootEntry(config, entry, player, playerUuid, safeName, effectiveMult);
+            }
+        }
+    }
+
+    private RandomLootEntry pickWeighted(List<RandomLootEntry> entries) {
+        double totalWeight = entries.stream()
+                .mapToDouble(RandomLootEntry::weight)
+                .filter(weight -> weight > 0)
+                .sum();
+        if (totalWeight <= 0) {
+            return entries.get(ThreadLocalRandom.current().nextInt(entries.size()));
+        }
+
+        double roll = ThreadLocalRandom.current().nextDouble(totalWeight);
+        double cumulative = 0;
+        for (RandomLootEntry entry : entries) {
+            if (entry.weight() <= 0) continue;
+            cumulative += entry.weight();
+            if (roll < cumulative) return entry;
+        }
+        return entries.get(entries.size() - 1);
+    }
+
+    private boolean rollChance(double chance) {
+        return ThreadLocalRandom.current().nextDouble(100.0)
+                < Math.max(0.0, Math.min(100.0, chance));
+    }
+
+    private void giveRandomLootEntry(BossConfig config, RandomLootEntry entry, Player player,
+            UUID playerUuid, String safeName, double effectiveMult) {
+        switch (entry.type().toLowerCase(Locale.ROOT)) {
+            case "command" -> executeRandomCommand(entry, player, playerUuid, safeName);
+            case "droptable", "drop-table", "mythic-droptable" -> {
+                int runs = config.isMultiplyDropTables()
+                        ? Math.max(1, (int) Math.round(effectiveMult))
+                        : 1;
+                executeDropTable(player, playerUuid, safeName, entry.dropTable(), runs);
+            }
+            default -> giveRandomItem(config, entry, player, playerUuid, effectiveMult);
+        }
+    }
+
+    private void executeRandomCommand(RandomLootEntry entry, Player player, UUID playerUuid, String safeName) {
+        if (entry.command() == null || entry.command().isBlank()) return;
+        if (!CommandValidator.isValid(entry.command())) {
+            plugin.getLogger().warning("Blocked dangerous random reward command: " + entry.command());
+            return;
+        }
+
+        if (player != null) {
+            if (safeName != null) {
+                dispatchRewardCommand(entry.command().replace("{player}", safeName), playerUuid);
+            }
+        } else {
+            plugin.getPendingRewardManager().queueCommand(playerUuid, entry.command());
+        }
+    }
+
+    private void executeDropTable(Player player, UUID playerUuid, String safeName, String dropTable, int runs) {
+        if (dropTable == null || dropTable.isBlank()) return;
+
+        String safeTable = dropTable.replaceAll("[^a-zA-Z0-9_\\-.]", "");
+        if (safeTable.isEmpty()) {
+            plugin.getLogger().warning("Invalid drop table name after sanitization: " + dropTable);
+            return;
+        }
+
+        int safeRuns = Math.max(1, runs);
+        for (int i = 0; i < safeRuns; i++) {
+            if (player != null) {
+                if (safeName == null) continue;
+                String cmd = "mm items droptable " + safeTable + " 1 " + safeName;
+                dispatchRewardCommand(cmd, playerUuid);
+                plugin.debug("Dispatched drop table '" + dropTable + "' for " + safeName);
+            } else {
+                String cmd = "mm items droptable " + safeTable + " 1 {player}";
+                plugin.getPendingRewardManager().queueCommand(playerUuid, cmd);
+                plugin.debug("Queued drop table '" + dropTable + "' for offline player " + playerUuid);
+            }
+        }
+    }
+
+    private void dispatchRewardCommand(String command, UUID playerUuid) {
+        try {
+            if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command)) {
+                plugin.getLogger().warning("Reward command was not dispatched for player " + playerUuid
+                        + ": " + command);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Reward command failed for player " + playerUuid
+                    + ": " + command + " (" + e.getMessage() + ")");
+        }
+    }
+
+    private void giveRandomItem(BossConfig config, RandomLootEntry entry, Player player,
+            UUID playerUuid, double effectiveMult) {
+        int amount = (int) Math.max(1, entry.amount() * effectiveMult);
+        ItemRewardConfig itemConfig = new ItemRewardConfig(entry.type(), entry.material(), entry.id(),
+                amount, entry.displayName());
+        ItemStack stack = createItem(itemConfig, amount);
+        if (stack == null) return;
+
+        if (player != null) {
+            giveOrDrop(player, stack, config);
+        } else {
+            queueItemPending(playerUuid, itemConfig, amount);
         }
     }
 

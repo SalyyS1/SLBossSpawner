@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Delivers pending rewards to players when they join.
@@ -36,9 +37,20 @@ public class PendingRewardListener implements Listener {
 
         // Delay delivery by 2 seconds to ensure player is fully loaded
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+
+            String playerName = RewardPlayerName.resolve(player);
+            if (playerName == null) {
+                plugin.getLogger().warning("Cannot deliver pending rewards: unsafe player name for UUID "
+                        + player.getUniqueId());
+                return;
+            }
+
             List<PendingReward> rewards = manager.claimRewards(player.getUniqueId());
             if (rewards.isEmpty()) return;
 
+            List<PendingReward> failed = new ArrayList<>();
+            int delivered = 0;
             for (PendingReward reward : rewards) {
                 if ("command".equals(reward.type()) && reward.command() != null) {
                     // H13 FIX: use CommandValidator instead of inline regex
@@ -47,24 +59,53 @@ public class PendingRewardListener implements Listener {
                                 + reward.command());
                         continue;
                     }
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.command());
+                    String command = RewardPlayerName.resolvePendingCommand(
+                            reward.command(), playerName);
+                    if (!command.equals(reward.command())
+                            && !reward.command().contains("{player}")) {
+                        plugin.debug("Migrated legacy pending command target for " + playerName);
+                    }
+                    try {
+                        if (Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command)) {
+                            delivered++;
+                        } else {
+                            failed.add(reward);
+                            plugin.getLogger().warning("Pending reward command was not accepted: " + command);
+                        }
+                    } catch (Exception e) {
+                        failed.add(reward);
+                        plugin.getLogger().warning("Pending reward command failed: " + e.getMessage());
+                    }
 
                 } else if ("item".equals(reward.type())) {
-                    // H9 FIX: delegate to ItemFactory.createFromPending()
-                    ItemStack stack = ItemFactory.createFromPending(
-                            reward.material(), reward.displayName(),
-                            reward.amount(), reward.mmoitemsId(),
-                            plugin.getLogger());
-                    if (stack != null) {
+                    try {
+                        // H9 FIX: delegate to ItemFactory.createFromPending()
+                        ItemStack stack = ItemFactory.createFromPending(
+                                reward.material(), reward.displayName(),
+                                reward.amount(), reward.mmoitemsId(),
+                                plugin.getLogger());
+                        if (stack == null) {
+                            failed.add(reward);
+                            continue;
+                        }
                         giveOrDrop(player, stack);
+                        delivered++;
+                    } catch (Exception e) {
+                        failed.add(reward);
+                        plugin.getLogger().warning("Pending item reward failed: " + e.getMessage());
                     }
                 }
             }
 
-            String msg = plugin.getMessageManager().getRawMessage("pending-rewards-delivered",
-                    Map.of("count", String.valueOf(rewards.size())));
-            player.sendMessage(msg);
-            plugin.debug("Delivered " + rewards.size() + " pending rewards to " + player.getName());
+            manager.requeueRewards(player.getUniqueId(), failed);
+
+            if (delivered > 0) {
+                String msg = plugin.getMessageManager().getRawMessage("pending-rewards-delivered",
+                        Map.of("count", String.valueOf(delivered)));
+                player.sendMessage(msg);
+            }
+            plugin.debug("Delivered " + delivered + " pending rewards to " + playerName
+                    + "; " + failed.size() + " remain queued");
         }, 40L);
     }
 

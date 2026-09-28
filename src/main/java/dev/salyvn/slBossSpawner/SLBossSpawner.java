@@ -140,12 +140,11 @@ public final class SLBossSpawner extends JavaPlugin {
 
         if (bossStateManager != null && bossScheduler != null) {
             bossStateManager.saveAll();
-            bossStateManager.setDisabled(true); // Prevent async tasks during shutdown
+            bossStateManager.setDisabled(true); // Keep the shutdown snapshot intact
         }
 
         if (bossScheduler != null) {
             bossScheduler.stop();
-            bossScheduler.despawnAll();
         }
 
         if (pendingRewardManager != null) {
@@ -184,14 +183,30 @@ public final class SLBossSpawner extends JavaPlugin {
         }
     }
 
-    public void reload() {
-        // H3 FIX: set flag before despawn so death events fired during reload are
-        // ignored
+    public boolean reload() {
+        // Suppress death rewards if a removed schedule's boss is despawned.
         reloading = true;
+        try {
 
         configManager.reload();
         messageManager.reload();
         scheduleManager.reload();
+        // Parse every replacement schedule before touching the live scheduler.
+        // A malformed time must leave the existing spawn loop running.
+        BossScheduler replacementScheduler = new BossScheduler(this, scheduleManager);
+        var removedBosses = bossScheduler.getAllBossInstances().entrySet().stream()
+                .filter(entry -> scheduleManager.getBossConfig(entry.getKey()) == null)
+                .toList();
+        for (var entry : removedBosses) {
+            boolean safe = bossScheduler.isRestoreReserved(entry.getKey())
+                    ? bossStateManager.canDiscardReservedBoss(entry.getKey())
+                    : entry.getValue().canDespawn();
+            if (!safe) {
+                getLogger().warning("Reload stopped: cannot verify boss '"
+                        + entry.getKey() + "' before removing its schedule");
+                return false;
+            }
+        }
 
         // Recreate DB connection with potentially updated config
         if (leaderboardCache != null) {
@@ -223,19 +238,36 @@ public final class SLBossSpawner extends JavaPlugin {
             leaderboardCache.start();
         }
 
+        // Remove bosses whose schedule was deleted; retain the others so reload
+        // can attach the new scheduler to their live MythicMobs entities.
+        for (var entry : removedBosses) {
+            if (bossScheduler.isRestoreReserved(entry.getKey())
+                    && !bossStateManager.discardReservedBoss(entry.getKey())) {
+                getLogger().warning("Reload stopped: cannot verify saved boss '"
+                        + entry.getKey() + "' before removing its schedule");
+                return false;
+            }
+            bossScheduler.clearRestoreReservation(entry.getKey());
+            if (!entry.getValue().despawn()) {
+                getLogger().warning("Reload stopped: cannot remove boss '"
+                        + entry.getKey() + "' before deleting its schedule");
+                return false;
+            }
+        }
         bossStateManager.saveAll();
         bossScheduler.stop();
-        bossScheduler.despawnAll();
-        damageTracker.clearAll();
-        tankTracker.clearAll();
-        supportTracker.clearAll();
 
-        bossScheduler = new BossScheduler(this, scheduleManager);
+        bossScheduler = replacementScheduler;
         bossScheduler.start();
         bossStateManager.restoreFromState(bossScheduler);
 
-        // H3 FIX: clear flag only after new scheduler is running
-        reloading = false;
+        return true;
+        } catch (Exception e) {
+            getLogger().log(java.util.logging.Level.SEVERE, "Reload failed", e);
+            return false;
+        } finally {
+            reloading = false;
+        }
     }
 
     public boolean isReloading() {

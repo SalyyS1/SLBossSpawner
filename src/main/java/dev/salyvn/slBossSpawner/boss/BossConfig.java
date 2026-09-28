@@ -592,7 +592,8 @@ public class BossConfig {
             double multiplier,
             List<String> commands,
             List<String> dropTables,
-            List<ItemRewardConfig> items) {
+            List<ItemRewardConfig> items,
+            RandomLootConfig randomLoot) {
     }
 
     public record ItemRewardConfig(
@@ -601,6 +602,24 @@ public class BossConfig {
             String id, // mmoitems: item ID; others: unused
             int amount,
             String displayName) {
+    }
+
+    public record RandomLootConfig(
+            boolean enabled,
+            int rolls,
+            List<RandomLootEntry> entries) {
+    }
+
+    public record RandomLootEntry(
+            String type, // "vanilla" | "mmoitems" | "mythicmobs" | "command" | "droptable"
+            double chance, // 0-100 independent roll chance
+            double weight, // weighted-pool weight when rolls > 0
+            String material,
+            String id,
+            int amount,
+            String displayName,
+            String command,
+            String dropTable) {
     }
 
     /**

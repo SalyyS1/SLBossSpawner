@@ -5,34 +5,43 @@ import dev.salyvn.slBossSpawner.utils.TimeUtils;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class BossInstance {
     private final SLBossSpawner plugin;
     private final BossConfig config;
     private BukkitTask expireTask;
+    private BukkitTask presenceTask;
     private BukkitTask leashTask;
     private BukkitTask noPlayerTask;
+    private BukkitTask leashStartTask;
+    private BukkitTask noPlayerStartTask;
+    private BukkitTask spawnVerifyTask;
+    private BukkitTask stateLocationSaveTask;
+    private boolean stopped;
     private int emptySeconds = 0;
-    private boolean chunkForced = false;
+    private World ticketWorld;
+    private int ticketChunkX;
+    private int ticketChunkZ;
+    private Location lastKnownEntityLocation;
+    private boolean unloadWarningLogged;
+    private boolean missingReservation;
 
-    /**
-     * Grace period counter: when getBukkitEntity() returns null during periodic
-     * checks (leash/noPlayer), we increment this instead of immediately calling
-     * cleanup(). Only after 3 consecutive nulls (3 seconds) do we treat the
-     * entity as truly lost. This prevents the race condition where MythicMobs
-     * entities aren't fully initialized yet when spawning 4+ bosses at once.
-     */
+    /** Consecutive missing seconds before pausing scheduled replacement. */
     private int entityNullCount = 0;
 
     private ActiveMob currentBoss;
@@ -74,7 +83,12 @@ public class BossInstance {
     }
 
     public void spawn() {
-        despawn();
+        if (!despawn()) {
+            plugin.getLogger().warning("[SPAWN] FAIL: old boss '" + config.getId()
+                    + "' could not be removed safely; keeping its saved UUID");
+            return;
+        }
+        stopped = false;
 
         // H5 FIX: resolve location lazily at spawn time
         Location loc = config.resolveLocation();
@@ -87,7 +101,6 @@ public class BossInstance {
         // Pick which mob to spawn (random pool or single)
         BossConfig.MobEntry pickedMob = config.pickMob();
         String mobToSpawn = pickedMob.mobId();
-        currentMythicMobId = mobToSpawn;
 
         plugin.getLogger().info("[SPAWN] " + config.getId() + " → world="
                 + loc.getWorld().getName() + " x=" + loc.getBlockX()
@@ -95,37 +108,53 @@ public class BossInstance {
                 + (config.isRandomSpawn() ? " (random: " + mobToSpawn + ")" : "")
                 + (pickedMob.expireMinutes() > 0 ? " expire=" + pickedMob.expireMinutes() + "min" : ""));
 
-        // M16: force-load chunk BEFORE spawn to ensure entity persists in unloaded area
-        if (config.isLoadChunks()) {
-            Chunk chunk = loc.getChunk();
-            if (!chunk.isLoaded()) {
-                chunk.load(true);
-                plugin.getLogger().info("[SPAWN] Chunk loaded (was unloaded)");
-            }
-            if (!chunk.isForceLoaded()) {
-                chunk.setForceLoaded(true);
-                chunkForced = true;
-                plugin.getLogger().info("[SPAWN] Chunk force-loaded");
-            }
-        } else {
-            plugin.getLogger().info("[SPAWN] loadChunks=false, skipping");
+        int chunkX = loc.getBlockX() >> 4;
+        int chunkZ = loc.getBlockZ() >> 4;
+        if (!config.isLoadChunks() && !loc.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+            plugin.getLogger().warning("[SPAWN] FAIL: chunk " + chunkX + "," + chunkZ
+                    + " in " + loc.getWorld().getName() + " is unloaded for boss '"
+                    + config.getId() + "'. Set loadChunks: true or keep the chunk loaded before spawning.");
+            return;
         }
 
         try {
+            if (config.isLoadChunks()) {
+                BossChunkTickets.acquire(plugin, loc.getWorld(), chunkX, chunkZ);
+                ticketWorld = loc.getWorld();
+                ticketChunkX = chunkX;
+                ticketChunkZ = chunkZ;
+                plugin.getLogger().info("[SPAWN] Plugin chunk ticket acquired at "
+                        + chunkX + "," + chunkZ);
+            } else {
+                plugin.getLogger().warning("[SPAWN] loadChunks=false for boss '" + config.getId()
+                        + "': the loaded chunk may unload later; set loadChunks: true to keep this boss active.");
+            }
+
             plugin.getLogger().info("[SPAWN] Calling MythicMobs spawnMob('" + mobToSpawn + "')...");
             ActiveMob mob = MythicBukkit.inst().getMobManager().spawnMob(
                     mobToSpawn, loc);
 
             if (mob != null) {
-                currentBoss = mob;
-                spawnOrigin = loc.clone();
-
                 Entity entity = BossEntityHelper.getBukkitEntity(mob);
-                entityUuid = (entity != null) ? entity.getUniqueId() : null;
+                if (entity == null) {
+                    plugin.getLogger().warning("[SPAWN] FAIL: MythicMobs returned '" + mobToSpawn
+                            + "' without a valid Bukkit entity; the spawn was not registered.");
+                    mob.remove();
+                    releaseChunkTicket();
+                    return;
+                }
+
+                currentBoss = mob;
+                currentMythicMobId = mobToSpawn;
+                spawnOrigin = loc.clone();
+                entityUuid = entity.getUniqueId();
+                keepEntityPersistent(entity);
+                lastKnownEntityLocation = entity.getLocation().clone();
 
                 plugin.getLogger().info("[SPAWN] SUCCESS: " + mobToSpawn
                         + " UUID=" + entityUuid
-                        + " entity=" + (entity != null ? entity.getType() : "NULL"));
+                        + " entity=" + entity.getType());
+                verifySpawnNextSecond(entityUuid);
 
                 // Use per-mob expire time if configured, otherwise global expire
                 int effectiveExpireSeconds = config.getExpireSecondsForMob(pickedMob);
@@ -142,17 +171,26 @@ public class BossInstance {
                 }
 
                 startExpireTimer(effectiveExpireSeconds);
+                startPresenceCheck();
 
                 // Delay leash and noPlayer checks by 3 seconds to allow MythicMobs
                 // entity initialization to fully complete (prevents race condition
                 // with getBukkitEntity() returning null for 4+ simultaneous spawns)
                 if (config.getLeashRadius() > 0) {
-                    Bukkit.getScheduler().runTaskLater(plugin, this::startLeashCheck, 60L);
+                    UUID expectedUuid = entityUuid;
+                    leashStartTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        leashStartTask = null;
+                        if (!stopped && expectedUuid.equals(entityUuid)) startLeashCheck();
+                    }, 60L);
                 }
 
                 // M16: start no-player idle despawn check (delayed)
                 if (config.getNoPlayerDespawnSeconds() > 0) {
-                    Bukkit.getScheduler().runTaskLater(plugin, this::startNoPlayerCheck, 60L);
+                    UUID expectedUuid = entityUuid;
+                    noPlayerStartTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        noPlayerStartTask = null;
+                        if (!stopped && expectedUuid.equals(entityUuid)) startNoPlayerCheck();
+                    }, 60L);
                 }
 
                 // Play spawn sound globally
@@ -174,12 +212,16 @@ public class BossInstance {
             } else {
                 plugin.getLogger()
                         .warning("[SPAWN] FAIL: MythicMobs returned null for '" + mobToSpawn + "'");
-                unforceChunk(loc);
+                releaseChunkTicket();
             }
         } catch (Exception e) {
-            plugin.getLogger().severe("[SPAWN] EXCEPTION: " + config.getId() + ": " + e.getMessage());
-            e.printStackTrace();
-            unforceChunk(loc);
+            plugin.getLogger().log(java.util.logging.Level.SEVERE,
+                    "[SPAWN] EXCEPTION: " + config.getId(), e);
+            if (currentBoss != null) {
+                despawn();
+            } else {
+                releaseChunkTicket();
+            }
         }
     }
 
@@ -187,73 +229,110 @@ public class BossInstance {
      * Restore a boss from persisted state after server restart.
      */
     public boolean restore(UUID savedUuid, long savedSpawnEpoch, long savedExpireEpoch,
-                            String savedMythicMobId) {
+                            String savedMythicMobId, Location savedLocation) {
         long now = Instant.now().getEpochSecond();
-        if (now >= savedExpireEpoch) {
+        if (now >= savedExpireEpoch && config.isClearOnExpire()) {
             plugin.debug("Boss " + config.getId() + " expired during downtime, skipping restore");
+            releaseChunkTicket();
             return false;
         }
 
-        ActiveMob found = null;
-        for (ActiveMob am : MythicBukkit.inst().getMobManager().getActiveMobs()) {
-            Entity e = BossEntityHelper.getBukkitEntity(am);
-            if (e != null && e.getUniqueId().equals(savedUuid)) {
-                found = am;
-                break;
+        if (config.isLoadChunks()) {
+            Location preload = savedLocation != null && savedLocation.getWorld() != null
+                    ? savedLocation : config.resolveLocation();
+            if (preload == null || preload.getWorld() == null) {
+                plugin.getLogger().warning("Cannot restore boss '" + config.getId()
+                        + "': saved world and configured spawn world are unavailable");
+                releaseChunkTicket();
+                return false;
+            }
+            try {
+                retainChunkTicketAt(preload);
+            } catch (Exception e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING,
+                        "Cannot load saved chunk for boss '" + config.getId() + "'", e);
+                releaseChunkTicket();
+                return false;
             }
         }
 
-        if (found == null) {
-            plugin.debug("Boss " + config.getId() + " entity not found for UUID "
-                    + savedUuid + ", skipping restore");
-            return false;
-        }
-
-        Entity entity = BossEntityHelper.getBukkitEntity(found);
-        if (entity == null)
-            return false;
-
-        currentBoss = found;
-        entityUuid = savedUuid;
-        currentMythicMobId = savedMythicMobId != null ? savedMythicMobId : config.getMythicMobId();
-        spawnEpoch = savedSpawnEpoch;
-        expireEpoch = savedExpireEpoch;
-        spawnOrigin = entity.getLocation().clone();
-        expireTime = ZonedDateTime.now(config.getTimeZone())
-                .plusSeconds(savedExpireEpoch - now);
-
-        // H10 FIX: register in entity index after restore
-        plugin.getBossScheduler().registerEntity(entityUuid, this);
-
-        long remaining = savedExpireEpoch - now;
-        startExpireTimer(remaining);
-
-        if (config.getLeashRadius() > 0) {
-            startLeashCheck();
-        }
-
-        // M16: start no-player idle despawn check on restore too
-        if (config.getNoPlayerDespawnSeconds() > 0) {
-            startNoPlayerCheck();
-        }
-
-        // M16: force-load chunk on restore
-        if (config.isLoadChunks() && entity.getLocation().isChunkLoaded()) {
-            Chunk chunk = entity.getLocation().getChunk();
-            if (!chunk.isForceLoaded()) {
-                chunk.setForceLoaded(true);
-                chunkForced = true;
+        try {
+            ActiveMob found = null;
+            for (ActiveMob am : MythicBukkit.inst().getMobManager().getActiveMobs()) {
+                Entity e = BossEntityHelper.getBukkitEntity(am);
+                if (e != null && e.getUniqueId().equals(savedUuid)) {
+                    found = am;
+                    break;
+                }
             }
+
+            if (found == null) {
+                plugin.debug("Boss " + config.getId() + " entity not found for UUID "
+                        + savedUuid + ", waiting for MythicMobs to register it");
+                return false;
+            }
+
+            Entity entity = BossEntityHelper.getBukkitEntity(found);
+            if (entity == null) {
+                plugin.debug("Boss " + config.getId() + " has no Bukkit entity yet; retrying restore");
+                return false;
+            }
+
+            Location entityLocation = entity.getLocation();
+            updateTicketForEntity(entityLocation);
+            keepEntityPersistent(entity);
+
+            currentBoss = found;
+            stopped = false;
+            entityUuid = savedUuid;
+            currentMythicMobId = savedMythicMobId != null ? savedMythicMobId : config.getMythicMobId();
+            spawnEpoch = savedSpawnEpoch;
+            expireEpoch = savedExpireEpoch;
+            spawnOrigin = entityLocation.clone();
+            lastKnownEntityLocation = entityLocation.clone();
+            long remaining = Math.max(0, savedExpireEpoch - now);
+            expireTime = remaining > 0
+                    ? ZonedDateTime.now(config.getTimeZone()).plusSeconds(remaining)
+                    : null;
+
+            // H10 FIX: register in entity index after restore
+            plugin.getBossScheduler().registerEntity(entityUuid, this);
+
+            if (remaining > 0) startExpireTimer(remaining);
+            startPresenceCheck();
+
+            if (config.getLeashRadius() > 0) {
+                startLeashCheck();
+            }
+
+            // M16: start no-player idle despawn check on restore too
+            if (config.getNoPlayerDespawnSeconds() > 0) {
+                startNoPlayerCheck();
+            }
+
+            plugin.getLogger().info("Boss restored: " + config.getId()
+                    + (remaining > 0 ? " (remaining: " + remaining + "s)"
+                    : " (expiry timer elapsed; clearOnExpire=false)"));
+
+            plugin.getDamageTracker().startTracking(entityUuid);
+            plugin.getTankTracker().startTracking(entityUuid);
+            plugin.getSupportTracker().startTracking(entityUuid);
+
+            // The saved location may be from an older release or a previous
+            // chunk. Record the entity's current position once it is attached.
+            plugin.getBossStateManager().saveSingle(this);
+
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING,
+                    "Could not restore boss '" + config.getId() + "'", e);
+            if (currentBoss != null) {
+                cleanup(false);
+            } else {
+                releaseChunkTicket();
+            }
+            return false;
         }
-
-        plugin.getLogger().info("Boss restored: " + config.getId()
-                + " (remaining: " + remaining + "s)");
-
-        plugin.getDamageTracker().startTracking(entityUuid);
-        plugin.getTankTracker().startTracking(entityUuid);
-        plugin.getSupportTracker().startTracking(entityUuid);
-
-        return true;
     }
 
     private void startExpireTimer(long seconds) {
@@ -262,11 +341,36 @@ public class BossInstance {
 
         expireTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (config.isClearOnExpire()) {
-                despawn();
-                plugin.getLogger().info("Boss expired and removed: " + config.getId());
+                if (despawn()) {
+                    plugin.getLogger().info("Boss expired and removed: " + config.getId());
+                } else {
+                    // Keep the saved UUID and retry once the entity can be
+                    // verified; an expired mob must not become untracked.
+                    startExpireTimer(5);
+                    return;
+                }
             }
             expireTime = null;
         }, seconds * 20L);
+    }
+
+    /** Keep tracking mobs even when no leash or idle-despawn check is enabled. */
+    private void startPresenceCheck() {
+        if (presenceTask != null) presenceTask.cancel();
+        presenceTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (stopped || currentBoss == null) {
+                if (presenceTask != null) {
+                    presenceTask.cancel();
+                    presenceTask = null;
+                }
+                return;
+            }
+            if (getTrackedEntity() == null) {
+                handleMissingEntity("presence check");
+            } else {
+                entityNullCount = 0;
+            }
+        }, 20L, 20L);
     }
 
     private void startLeashCheck() {
@@ -282,17 +386,8 @@ public class BossInstance {
                 return;
             }
 
-            Entity entity = BossEntityHelper.getBukkitEntity(currentBoss);
-            if (entity == null) {
-                entityNullCount++;
-                if (entityNullCount >= 3) {
-                    plugin.debug("Boss entity lost during leash check (" + entityNullCount
-                            + " consecutive nulls): " + config.getId());
-                    cleanup();
-                }
-                return;
-            }
-            entityNullCount = 0;
+            Entity entity = getTrackedEntity();
+            if (entity == null) return;
 
             if (spawnOrigin.getWorld() == null || !entity.getWorld().equals(spawnOrigin.getWorld())) {
                 if (spawnOrigin.getWorld() != null)
@@ -314,6 +409,16 @@ public class BossInstance {
     }
 
     public void cleanup() {
+        cleanup(true);
+    }
+
+    private void cleanup(boolean removeSavedState) {
+        stopped = true;
+        cancelDelayedTasks();
+        if (missingReservation) {
+            plugin.getBossScheduler().clearRestoreReservation(config.getId());
+            missingReservation = false;
+        }
         // Stop trackers to prevent memory leak
         if (entityUuid != null) {
             plugin.getDamageTracker().stopTracking(entityUuid);
@@ -323,18 +428,11 @@ public class BossInstance {
             plugin.getBossScheduler().unregisterEntity(entityUuid);
         }
 
-        // M5 FIX: remove from state file on cleanup so dead bosses aren't restored
-        plugin.getBossStateManager().remove(config.getId());
-
-        // M16: unforce chunk if we force-loaded it
-        if (chunkForced && spawnOrigin != null && spawnOrigin.getWorld() != null) {
-            try {
-                Chunk chunk = spawnOrigin.getChunk();
-                chunk.setForceLoaded(false);
-            } catch (Exception ignored) {
-            }
-            chunkForced = false;
+        if (removeSavedState) {
+            plugin.getBossStateManager().remove(config.getId());
         }
+
+        releaseChunkTicket();
 
         currentBoss = null;
         entityUuid = null;
@@ -345,10 +443,16 @@ public class BossInstance {
         expireEpoch = 0;
         emptySeconds = 0;
         entityNullCount = 0;
+        lastKnownEntityLocation = null;
+        unloadWarningLogged = false;
 
         if (expireTask != null) {
             expireTask.cancel();
             expireTask = null;
+        }
+        if (presenceTask != null) {
+            presenceTask.cancel();
+            presenceTask = null;
         }
         if (leashTask != null) {
             leashTask.cancel();
@@ -360,19 +464,64 @@ public class BossInstance {
         }
     }
 
-    public void despawn() {
+    /** Check whether a live entity can be reached before a multi-boss reload. */
+    public boolean canDespawn() {
+        if (currentBoss == null) return true;
+        try {
+            Entity entity = getTrackedEntity();
+            if (entity == null && entityUuid != null && isLastKnownChunkUnloaded()) {
+                Location known = lastKnownEntityLocation;
+                known.getWorld().getChunkAt(known.getBlockX() >> 4, known.getBlockZ() >> 4);
+                entity = getTrackedEntity();
+            }
+            return entity != null;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Cannot verify boss '" + config.getId()
+                    + "' before reload: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean despawn() {
         if (currentBoss != null) {
-            Entity entity = BossEntityHelper.getBukkitEntity(currentBoss);
-            if (entity != null)
+            try {
+                Entity entity = getTrackedEntity();
+                if (entity == null && entityUuid != null && isLastKnownChunkUnloaded()) {
+                    // An explicit despawn must remove a persistent boss even when
+                    // loadChunks=false allowed its chunk to unload.
+                    Location known = lastKnownEntityLocation;
+                    known.getWorld().getChunkAt(known.getBlockX() >> 4, known.getBlockZ() >> 4);
+                    entity = getTrackedEntity();
+                }
+                if (entity == null) {
+                    plugin.getLogger().warning("Could not verify removal of boss '" + config.getId()
+                            + "' entity " + entityUuid + " at "
+                            + describeLocation(lastKnownEntityLocation)
+                            + "; keeping its saved state");
+                    return false;
+                }
                 entity.remove();
+            } catch (Exception e) {
+                plugin.getLogger().warning("Could not remove boss '" + config.getId()
+                        + "' entity " + entityUuid + ": " + e.getMessage()
+                        + "; keeping its saved state");
+                return false;
+            }
         }
         cleanup();
+        return true;
     }
 
     public void stop() {
+        stopped = true;
+        cancelDelayedTasks();
         if (expireTask != null) {
             expireTask.cancel();
             expireTask = null;
+        }
+        if (presenceTask != null) {
+            presenceTask.cancel();
+            presenceTask = null;
         }
         if (leashTask != null) {
             leashTask.cancel();
@@ -382,12 +531,15 @@ public class BossInstance {
             noPlayerTask.cancel();
             noPlayerTask = null;
         }
+        // Shutdown preserves the mob in the world; plugin tickets must still be
+        // removed so they do not outlive this scheduler instance.
+        releaseChunkTicket();
     }
 
     public boolean isAlive() {
         if (currentBoss == null)
             return false;
-        return BossEntityHelper.getBukkitEntity(currentBoss) != null;
+        return getTrackedEntity() != null || isLastKnownChunkUnloaded();
     }
 
     public BossConfig getConfig() {
@@ -400,6 +552,11 @@ public class BossInstance {
 
     public UUID getEntityUuid() {
         return entityUuid;
+    }
+
+    /** Last observed position, retained while a non-ticketed chunk is unloaded. */
+    public Location getLastKnownEntityLocation() {
+        return lastKnownEntityLocation == null ? null : lastKnownEntityLocation.clone();
     }
 
     /**
@@ -465,17 +622,8 @@ public class BossInstance {
                 return;
             }
 
-            Entity entity = BossEntityHelper.getBukkitEntity(currentBoss);
-            if (entity == null) {
-                entityNullCount++;
-                if (entityNullCount >= 3) {
-                    plugin.debug("Boss entity lost during noPlayer check ("
-                            + entityNullCount + " consecutive nulls): " + config.getId());
-                    cleanup();
-                }
-                return;
-            }
-            entityNullCount = 0;
+            Entity entity = getTrackedEntity();
+            if (entity == null) return;
 
             boolean playerNearby = false;
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -491,9 +639,10 @@ public class BossInstance {
             } else {
                 emptySeconds++;
                 if (emptySeconds >= threshold) {
-                    plugin.getLogger().info("Boss " + config.getId()
-                            + " despawned — no players nearby for " + threshold + "s");
-                    despawn();
+                    if (despawn()) {
+                        plugin.getLogger().info("Boss " + config.getId()
+                                + " despawned — no players nearby for " + threshold + "s");
+                    }
                 }
             }
         }, 20L, 20L); // check every 1 second
@@ -501,19 +650,31 @@ public class BossInstance {
 
     /**
      * Play a configurable sound to all online players when a boss spawns.
-     * Sound name should match a Bukkit {@link Sound} enum constant.
+     * Accepts a sound key or a legacy enum-style name from existing configs.
      * Falls back silently if the sound name is invalid.
      */
     private void playSpawnSound(Location spawnLoc) {
         if (!config.isSpawnSoundEnabled()) return;
 
-        Sound sound;
-        try {
-            sound = Sound.valueOf(config.getSpawnSound().toUpperCase());
-        } catch (IllegalArgumentException e) {
+        String configured = config.getSpawnSound().trim();
+        NamespacedKey soundKey = NamespacedKey.fromString(configured.toLowerCase(Locale.ROOT));
+        Sound sound = soundKey == null ? null : Registry.SOUND_EVENT.get(soundKey);
+        if (sound == null) {
+            // Preserve existing ENTITY_ENDER_DRAGON_GROWL style config values.
+            for (Sound candidate : Registry.SOUND_EVENT) {
+                NamespacedKey candidateKey = Registry.SOUND_EVENT.getKey(candidate);
+                if (candidateKey != null && candidateKey.getKey().replace('.', '_')
+                        .equalsIgnoreCase(configured)) {
+                    sound = candidate;
+                    soundKey = candidateKey;
+                    break;
+                }
+            }
+        }
+        if (sound == null) {
             plugin.getLogger().warning("[SOUND] Invalid sound name '"
                     + config.getSpawnSound() + "' for boss '" + config.getId()
-                    + "'. Use Bukkit Sound enum names (e.g. ENTITY_ENDER_DRAGON_GROWL)");
+                    + "'. Use a sound key (e.g. minecraft:entity.ender_dragon.growl)");
             return;
         }
 
@@ -524,19 +685,180 @@ public class BossInstance {
             p.playSound(p.getLocation(), sound, volume, pitch);
         }
 
-        plugin.debug("Played spawn sound " + sound.name()
+        plugin.debug("Played spawn sound " + soundKey
                 + " vol=" + volume + " pitch=" + pitch
                 + " for boss " + config.getId());
     }
 
-    /** Undo force-load if we set it. */
-    private void unforceChunk(Location loc) {
-        if (chunkForced && loc != null && loc.getWorld() != null) {
-            try {
-                loc.getChunk().setForceLoaded(false);
-            } catch (Exception ignored) {
+    private void keepEntityPersistent(Entity entity) {
+        entity.setPersistent(true);
+        if (entity instanceof LivingEntity living) {
+            living.setRemoveWhenFarAway(false);
+        }
+    }
+
+    /** Resolve the current entity even if MythicMobs replaced its adapter on chunk load. */
+    private Entity getTrackedEntity() {
+        Entity entity = BossEntityHelper.getBukkitEntity(currentBoss);
+        if (entity == null && entityUuid != null) {
+            Entity loaded = Bukkit.getEntity(entityUuid);
+            if (loaded != null && loaded.isValid() && !loaded.isDead()) {
+                entity = loaded;
             }
-            chunkForced = false;
+        }
+        if (entity != null) {
+            Location currentLocation = entity.getLocation();
+            Location previousLocation = lastKnownEntityLocation;
+            lastKnownEntityLocation = currentLocation.clone();
+            updateTicketForEntity(currentLocation);
+            if (!stopped && entityUuid != null && previousLocation != null
+                    && (previousLocation.getWorld() != currentLocation.getWorld()
+                    || (previousLocation.getBlockX() >> 4) != (currentLocation.getBlockX() >> 4)
+                    || (previousLocation.getBlockZ() >> 4) != (currentLocation.getBlockZ() >> 4))) {
+                scheduleStateLocationSave();
+            }
+            if (unloadWarningLogged) {
+                plugin.getLogger().info("[SPAWN] Boss '" + config.getId()
+                        + "' is loaded again at " + describeLocation(currentLocation));
+                unloadWarningLogged = false;
+            }
+            if (missingReservation) {
+                missingReservation = false;
+                plugin.getBossScheduler().clearRestoreReservation(config.getId());
+                plugin.getLogger().info("[SPAWN] Boss '" + config.getId()
+                        + "' entity " + entityUuid + " became available again");
+            }
+        }
+        return entity;
+    }
+
+    /** Keep the ticket with the entity when a Mythic skill moves it to another chunk. */
+    private void updateTicketForEntity(Location location) {
+        if (ticketWorld == null || location.getWorld() == null) return;
+        retainChunkTicketAt(location);
+    }
+
+    /** Retain exactly one ticket across restore retries and chunk transfers. */
+    private void retainChunkTicketAt(Location location) {
+        World world = location.getWorld();
+        if (world == null) throw new IllegalArgumentException("Chunk ticket location has no world");
+        int chunkX = location.getBlockX() >> 4;
+        int chunkZ = location.getBlockZ() >> 4;
+        if (world.equals(ticketWorld) && chunkX == ticketChunkX && chunkZ == ticketChunkZ) return;
+
+        BossChunkTickets.acquire(plugin, world, chunkX, chunkZ);
+        World previousWorld = ticketWorld;
+        int previousX = ticketChunkX;
+        int previousZ = ticketChunkZ;
+        ticketWorld = world;
+        ticketChunkX = chunkX;
+        ticketChunkZ = chunkZ;
+        if (previousWorld != null) {
+            BossChunkTickets.release(plugin, previousWorld, previousX, previousZ);
+        }
+    }
+
+    private boolean isLastKnownChunkUnloaded() {
+        Location known = lastKnownEntityLocation;
+        if (known == null || known.getWorld() == null) return false;
+        return !known.getWorld().isChunkLoaded(known.getBlockX() >> 4,
+                known.getBlockZ() >> 4);
+    }
+
+    private void handleMissingEntity(String check) {
+        if (isLastKnownChunkUnloaded()) {
+            entityNullCount = 0;
+            if (!unloadWarningLogged) {
+                plugin.getLogger().warning("[SPAWN] Boss '" + config.getId()
+                        + "' is temporarily unavailable because its chunk unloaded at "
+                        + describeLocation(lastKnownEntityLocation)
+                        + ". Set loadChunks: true to keep it active.");
+                unloadWarningLogged = true;
+            }
+            return;
+        }
+
+        if (++entityNullCount >= 3 && !missingReservation) {
+            plugin.getLogger().warning("[SPAWN] Boss '" + config.getId()
+                    + "' entity " + entityUuid + " is missing during " + check
+                    + " while its last known chunk is loaded; keeping its UUID"
+                    + " and pausing scheduled replacement until it returns or an admin"
+                    + " runs /slboss state forget " + config.getId());
+            missingReservation = true;
+            plugin.getBossScheduler().reserveRestore(config.getId());
+        }
+    }
+
+    private void verifySpawnNextSecond(UUID expectedUuid) {
+        spawnVerifyTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            spawnVerifyTask = null;
+            if (stopped || !expectedUuid.equals(entityUuid)) return;
+
+            Entity entity = getTrackedEntity();
+            if (entity == null) {
+                plugin.getLogger().warning("[SPAWN] VERIFY: boss '" + config.getId()
+                        + "' entity " + expectedUuid + " is no longer loaded one second after spawn"
+                        + (isLastKnownChunkUnloaded() ? " (chunk unloaded)" : " (chunk loaded)"));
+                return;
+            }
+
+            Location actual = entity.getLocation();
+            plugin.getLogger().info("[SPAWN] VERIFY: boss '" + config.getId()
+                    + "' entity " + expectedUuid + " at " + describeLocation(actual));
+            if (spawnOrigin != null && (actual.getWorld() != spawnOrigin.getWorld()
+                    || actual.distanceSquared(spawnOrigin) > 9.0)) {
+                plugin.getLogger().warning("[SPAWN] Boss '" + config.getId()
+                        + "' moved over 3 blocks from configured spawn "
+                        + describeLocation(spawnOrigin)
+                        + "; check terrain, gravity, and MythicMobs skills.");
+            }
+        }, 20L);
+    }
+
+    /** Persist a moved boss's new chunk without writing for every block step. */
+    private void scheduleStateLocationSave() {
+        if (stateLocationSaveTask != null) return;
+        stateLocationSaveTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            stateLocationSaveTask = null;
+            if (!stopped && entityUuid != null
+                    && plugin.getBossScheduler().getBossInstance(config.getId()) == this) {
+                plugin.getBossStateManager().saveSingle(this);
+            }
+        }, 1L);
+    }
+
+    private void cancelDelayedTasks() {
+        if (leashStartTask != null) {
+            leashStartTask.cancel();
+            leashStartTask = null;
+        }
+        if (noPlayerStartTask != null) {
+            noPlayerStartTask.cancel();
+            noPlayerStartTask = null;
+        }
+        if (spawnVerifyTask != null) {
+            spawnVerifyTask.cancel();
+            spawnVerifyTask = null;
+        }
+        if (stateLocationSaveTask != null) {
+            stateLocationSaveTask.cancel();
+            stateLocationSaveTask = null;
+        }
+    }
+
+    private static String describeLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) return "unknown location";
+        return loc.getWorld().getName() + " x=" + loc.getBlockX()
+                + " y=" + loc.getBlockY() + " z=" + loc.getBlockZ();
+    }
+
+    /** Release only the ticket owned by this boss, including failed spawns. */
+    private void releaseChunkTicket() {
+        if (ticketWorld == null) return;
+        try {
+            BossChunkTickets.release(plugin, ticketWorld, ticketChunkX, ticketChunkZ);
+        } finally {
+            ticketWorld = null;
         }
     }
 }

@@ -1,7 +1,7 @@
 name: SLBossSpawner
 version: '${project.version}'
 main: dev.salyvn.slBossSpawner.SLBossSpawner
-api-version: '1.21'
+api-version: '1.21.11'
 author: SalyVn
 description: Boss spawner plugin with MythicMobs integration
 softdepend: [PlaceholderAPI, MMOItems]
@@ -10,16 +10,18 @@ depend: [MythicMobs]
 commands:
   slboss:
     description: Main boss spawner command
-    usage: /<command> [help|reload|spawn|despawn|info|list|stats|top]
+    usage: /<command> [help|reload|state|spawn|despawn|info|list|stats|top]
     aliases: [slbs]
-    permission: slboss.use
 
 permissions:
   slboss.use:
     description: Basic command access
-    default: op
+    default: true
   slboss.reload:
     description: Reload plugin configuration
+    default: op
+  slboss.state:
+    description: Forget unresolved saved boss state after manual verification
     default: op
   slboss.spawn:
     description: Force spawn boss
@@ -45,6 +47,7 @@ permissions:
     children:
       slboss.use: true
       slboss.reload: true
+      slboss.state: true
       slboss.spawn: true
       slboss.despawn: true
       slboss.info: true

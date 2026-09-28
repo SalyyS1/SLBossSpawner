@@ -69,7 +69,7 @@ public class MySQLProvider implements DatabaseManager {
                     "CREATE TABLE IF NOT EXISTS " + prefix + "stats (" +
                             "  id INT AUTO_INCREMENT PRIMARY KEY," +
                             "  player_uuid VARCHAR(36) NOT NULL," +
-                            "  player_name VARCHAR(16) NOT NULL," +
+                            "  player_name VARCHAR(64) NOT NULL," +
                             "  boss_id VARCHAR(64) NOT NULL," +
                             "  period_type VARCHAR(16) NOT NULL," +
                             "  period_key VARCHAR(16) NOT NULL," +
@@ -89,18 +89,19 @@ public class MySQLProvider implements DatabaseManager {
                             "  UNIQUE KEY uq_player_boss_period (player_uuid, boss_id, period_type, period_key)" +
                             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-            stmt.executeUpdate(
-                    "CREATE INDEX IF NOT EXISTS idx_" + prefix + "leaderboard " +
+            createIndexIfMissing(conn, "idx_" + prefix + "leaderboard",
+                    "CREATE INDEX idx_" + prefix + "leaderboard " +
                             "ON " + prefix + "stats(period_type, period_key, boss_id)");
-            stmt.executeUpdate(
-                    "CREATE INDEX IF NOT EXISTS idx_" + prefix + "player " +
+            createIndexIfMissing(conn, "idx_" + prefix + "player",
+                    "CREATE INDEX idx_" + prefix + "player " +
                             "ON " + prefix + "stats(player_uuid, period_type)");
+            ensurePlayerNameCapacity(conn, prefix + "stats");
 
             stmt.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS " + prefix + "stats_archive (" +
                             "  id INT AUTO_INCREMENT PRIMARY KEY," +
                             "  player_uuid VARCHAR(36) NOT NULL," +
-                            "  player_name VARCHAR(16) NOT NULL," +
+                            "  player_name VARCHAR(64) NOT NULL," +
                             "  boss_id VARCHAR(64) NOT NULL," +
                             "  period_type VARCHAR(16) NOT NULL," +
                             "  period_key VARCHAR(16) NOT NULL," +
@@ -118,6 +119,7 @@ public class MySQLProvider implements DatabaseManager {
                             "  created_at BIGINT NOT NULL," +
                             "  updated_at BIGINT NOT NULL" +
                             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            ensurePlayerNameCapacity(conn, prefix + "stats_archive");
 
             stmt.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS " + prefix + "seasons (" +
@@ -128,6 +130,51 @@ public class MySQLProvider implements DatabaseManager {
                             "  active TINYINT(1) DEFAULT 1" +
                             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
+    }
+
+    private void createIndexIfMissing(Connection conn, String indexName, String createSql) throws SQLException {
+        if (indexExists(conn, indexName)) return;
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate(createSql);
+        } catch (SQLException e) {
+            // Another server can create the same index after our metadata check.
+            if (!indexExists(conn, indexName)) throw e;
+        }
+    }
+
+    private boolean indexExists(Connection conn, String indexName) throws SQLException {
+        try (ResultSet rs = conn.getMetaData().getIndexInfo(null, null, prefix + "stats", false, false)) {
+            while (rs.next()) {
+                if (indexName.equalsIgnoreCase(rs.getString("INDEX_NAME"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Upgrade old 16-character columns to store prefixed Bedrock names. */
+    private void ensurePlayerNameCapacity(Connection conn, String table) throws SQLException {
+        if (playerNameCapacity(conn, table) >= 64) return;
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("ALTER TABLE " + table
+                    + " MODIFY COLUMN player_name VARCHAR(64) NOT NULL");
+        } catch (SQLException e) {
+            // A second server may have completed the same migration first.
+            if (playerNameCapacity(conn, table) < 64) throw e;
+        }
+    }
+
+    private int playerNameCapacity(Connection conn, String table) throws SQLException {
+        try (ResultSet rs = conn.getMetaData().getColumns(conn.getCatalog(), null,
+                table, "player_name")) {
+            while (rs.next()) {
+                if (table.equalsIgnoreCase(rs.getString("TABLE_NAME"))) {
+                    return rs.getInt("COLUMN_SIZE");
+                }
+            }
+        }
+        throw new SQLException("Cannot inspect player_name column in " + table);
     }
 
     @Override

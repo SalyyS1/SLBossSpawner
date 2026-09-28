@@ -29,6 +29,27 @@ boss:
             material: DIAMOND
             amount: 5
             display-name: "&#FFD93D&lDamage Reward Rank 1"
+        # Optional random bonus loot for this tier.
+        # With rolls > 0, each roll picks one entry by weight.
+        # With rolls: 0, every entry rolls independently using chance.
+        random-loot:
+          enabled: true
+          rolls: 1
+          entries:
+            - type: vanilla
+              material: NETHERITE_INGOT
+              amount: 1
+              weight: 5
+              chance: 25
+              display-name: "&#FFD93D&lLucky Boss Drop"
+            - type: command
+              command: "eco give {player} 10000"
+              weight: 1
+              chance: 10
+            - type: droptable
+              drop-table: "RareBossLootTable"
+              weight: 2
+              chance: 15
       2:
         multiplier: 2.0
         commands:

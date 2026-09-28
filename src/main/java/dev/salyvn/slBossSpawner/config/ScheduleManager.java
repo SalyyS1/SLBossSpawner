@@ -4,6 +4,8 @@ import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossConfig;
 import dev.salyvn.slBossSpawner.boss.BossConfig.ItemRewardConfig;
 import dev.salyvn.slBossSpawner.boss.BossConfig.MobEntry;
+import dev.salyvn.slBossSpawner.boss.BossConfig.RandomLootConfig;
+import dev.salyvn.slBossSpawner.boss.BossConfig.RandomLootEntry;
 import dev.salyvn.slBossSpawner.boss.BossConfig.RewardTierConfig;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -189,6 +191,12 @@ public class ScheduleManager {
                     supportRewardsEnabled = supportSection.getBoolean("enabled", true);
                     supportRewardTiers = parseTiers(supportSection.getConfigurationSection("tiers"));
                 }
+
+                if (rewardsEnabled) {
+                    plugin.getLogger().info("Boss '" + bossId + "' reward tiers: damage="
+                            + damageRewardTiers.size() + ", tank=" + tankRewardTiers.size()
+                            + ", support=" + supportRewardTiers.size());
+                }
             }
 
             // Log random mob pool info
@@ -310,6 +318,13 @@ public class ScheduleManager {
             try {
                 rank = Integer.parseInt(rankKey);
             } catch (NumberFormatException e) {
+                plugin.getLogger().warning("Ignoring non-numeric reward rank '" + rankKey
+                        + "' in " + tiersSection.getCurrentPath());
+                continue;
+            }
+            if (rank <= 0) {
+                plugin.getLogger().warning("Ignoring reward rank " + rank
+                        + " in " + tiersSection.getCurrentPath() + ": ranks start at 1");
                 continue;
             }
 
@@ -322,16 +337,70 @@ public class ScheduleManager {
                 String type = itemMap.containsKey("type") ? String.valueOf(itemMap.get("type")) : "vanilla";
                 String material = itemMap.containsKey("material") ? String.valueOf(itemMap.get("material")) : "DIAMOND";
                 String itemId = itemMap.containsKey("id") ? String.valueOf(itemMap.get("id")) : "";
-                int amount = itemMap.containsKey("amount") ? ((Number) itemMap.get("amount")).intValue() : 1;
+                int amount = getInt(itemMap.get("amount"), 1);
                 String displayName = itemMap.containsKey("display-name") ? String.valueOf(itemMap.get("display-name"))
                         : "";
                 items.add(new ItemRewardConfig(type, material, itemId, amount, displayName));
             }
 
-            tiers.add(new RewardTierConfig(rank, multiplier, commands, dropTables, items));
+            RandomLootConfig randomLoot = parseRandomLoot(tierSection.getConfigurationSection("random-loot"));
+
+            tiers.add(new RewardTierConfig(rank, multiplier, commands, dropTables, items, randomLoot));
         }
 
         return tiers;
+    }
+
+    private RandomLootConfig parseRandomLoot(ConfigurationSection section) {
+        if (section == null) {
+            return new RandomLootConfig(false, 0, List.of());
+        }
+
+        boolean enabled = section.getBoolean("enabled", true);
+        int rolls = Math.max(0, section.getInt("rolls", 0));
+        List<RandomLootEntry> entries = new ArrayList<>();
+
+        for (Map<?, ?> entryMap : section.getMapList("entries")) {
+            String type = (entryMap.containsKey("type") ? String.valueOf(entryMap.get("type")) : "vanilla")
+                    .toLowerCase(Locale.ROOT);
+            double chance = clamp(getDouble(entryMap.get("chance"), 0.0), 0.0, 100.0);
+            double weight = Math.max(0.0, getDouble(entryMap.get("weight"), 1.0));
+            String material = entryMap.containsKey("material") ? String.valueOf(entryMap.get("material")) : "";
+            String itemId = entryMap.containsKey("id") ? String.valueOf(entryMap.get("id")) : "";
+            int amount = getInt(entryMap.get("amount"), 1);
+            String displayName = entryMap.containsKey("display-name") ? String.valueOf(entryMap.get("display-name")) : "";
+            String command = entryMap.containsKey("command") ? String.valueOf(entryMap.get("command")) : "";
+            String dropTable = entryMap.containsKey("drop-table") ? String.valueOf(entryMap.get("drop-table")) : "";
+
+            entries.add(new RandomLootEntry(type, chance, weight, material, itemId,
+                    amount, displayName, command, dropTable));
+        }
+
+        return new RandomLootConfig(enabled, rolls, List.copyOf(entries));
+    }
+
+    private int getInt(Object raw, int fallback) {
+        if (raw == null) return fallback;
+        if (raw instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(String.valueOf(raw).trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private double getDouble(Object raw, double fallback) {
+        if (raw == null) return fallback;
+        if (raw instanceof Number n) return n.doubleValue();
+        try {
+            return Double.parseDouble(String.valueOf(raw).trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public Map<String, BossConfig> getAllBossConfigs() {

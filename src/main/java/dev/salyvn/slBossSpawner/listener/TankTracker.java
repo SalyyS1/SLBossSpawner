@@ -5,6 +5,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,13 +24,18 @@ public class TankTracker extends AbstractBossTracker<TankResult.PlayerTankEntry>
     protected String getTrackerName() { return "tank"; }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDamage(EntityDamageByEntityEvent event) {
+    public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 
-        UUID bossUuid = unwrapBossUuid(event.getDamager());
+        Entity cause = event.getDamageSource().getCausingEntity();
+        UUID bossUuid = cause != null ? unwrapBossUuid(cause) : null;
+        if (bossUuid == null && event instanceof EntityDamageByEntityEvent byEntity) {
+            bossUuid = unwrapBossUuid(byEntity.getDamager());
+        }
         if (bossUuid == null || !trackedBosses.contains(bossUuid)) return;
 
         double damage = event.getFinalDamage();
+        if (damage <= 0) return;
         UUID playerUuid = player.getUniqueId();
 
         dataMap.computeIfAbsent(bossUuid, k -> new HashMap<>())

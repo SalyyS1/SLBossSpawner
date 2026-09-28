@@ -60,7 +60,7 @@ public class SQLiteProvider implements DatabaseManager {
                     CREATE TABLE IF NOT EXISTS slbs_stats (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         player_uuid VARCHAR(36) NOT NULL,
-                        player_name VARCHAR(16) NOT NULL,
+                        player_name VARCHAR(64) NOT NULL,
                         boss_id VARCHAR(64) NOT NULL,
                         period_type VARCHAR(16) NOT NULL,
                         period_key VARCHAR(16) NOT NULL,
@@ -89,7 +89,7 @@ public class SQLiteProvider implements DatabaseManager {
                     CREATE TABLE IF NOT EXISTS slbs_stats_archive (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         player_uuid VARCHAR(36) NOT NULL,
-                        player_name VARCHAR(16) NOT NULL,
+                        player_name VARCHAR(64) NOT NULL,
                         boss_id VARCHAR(64) NOT NULL,
                         period_type VARCHAR(16) NOT NULL,
                         period_key VARCHAR(16) NOT NULL,

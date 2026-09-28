@@ -5,6 +5,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,14 +36,21 @@ public class DamageTracker extends AbstractBossTracker<DamageResult.PlayerDamage
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDamage(EntityDamageByEntityEvent event) {
+    public void onDamage(EntityDamageEvent event) {
         UUID victimUuid = event.getEntity().getUniqueId();
         if (!trackedBosses.contains(victimUuid)) return;
 
-        Player player = unwrapPlayer(event.getDamager());
+        // DamageSource carries the original cause for spells and indirect damage.
+        // Handle the final Bukkit damage event once, after cancellation/armor.
+        Entity cause = event.getDamageSource().getCausingEntity();
+        Player player = cause != null ? unwrapPlayer(cause) : null;
+        if (player == null && event instanceof EntityDamageByEntityEvent byEntity) {
+            player = unwrapPlayer(byEntity.getDamager());
+        }
         if (player == null) return;
 
         double damage = event.getFinalDamage();
+        if (damage <= 0) return;
         UUID playerUuid = player.getUniqueId();
 
         dataMap.computeIfAbsent(victimUuid, k -> new HashMap<>())
