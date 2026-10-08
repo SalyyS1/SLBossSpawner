@@ -226,6 +226,26 @@ public class BossConfig {
         return spawnWorldName;
     }
 
+    public double getSpawnX() {
+        return spawnX;
+    }
+
+    public double getSpawnY() {
+        return spawnY;
+    }
+
+    public double getSpawnZ() {
+        return spawnZ;
+    }
+
+    public float getSpawnYaw() {
+        return spawnYaw;
+    }
+
+    public float getSpawnPitch() {
+        return spawnPitch;
+    }
+
     public int getLeashRadius() {
         return leashRadius;
     }

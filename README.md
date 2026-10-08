@@ -2,7 +2,7 @@
 
 A scheduled boss spawner plugin for Paper servers with MythicMobs integration. Supports damage-based reward distribution, spawn countdown warnings, offline reward queuing, and PlaceholderAPI placeholders.
 
-**Version:** 3.0.1
+**Version:** 3.1.0
 
 ## Requirements
 
@@ -11,11 +11,10 @@ A scheduled boss spawner plugin for Paper servers with MythicMobs integration. S
 - MythicMobs 5.13.0 (required)
 - PlaceholderAPI 2.12.3 (optional)
 - MMOItems 6.10.1-SNAPSHOT with MythicLib 1.7.1-SNAPSHOT (optional)
-- MySQL 5.7+ for optional MySQL statistics storage (Connector/J is included in the plugin JAR)
 
 ## Installation
 
-1. Place `SLBossSpawner-3.0.1.jar` in your server's `plugins/` folder
+1. Place `SLBossSpawner-3.1.0.jar` in your server's `plugins/` folder
 2. Restart the server
 3. Edit configuration files in `plugins/SLBossSpawner/`
 4. Run `/slboss reload`
@@ -29,8 +28,9 @@ A scheduled boss spawner plugin for Paper servers with MythicMobs integration. S
 | `reward.yml` | Reward tiers, items, commands per boss |
 | `message.yml` | English messages |
 | `message-vi.yml` | Vietnamese messages |
+| `statistics.yml` | Auto-generated YAML statistics snapshot |
 
-Set `language` in `config.yml` to `en` or `vi`. Default is `vi`.
+Set `language` in `config.yml` to `en` or `vi`. Default is `en`.
 
 ## Commands
 
@@ -43,6 +43,9 @@ Set `language` in `config.yml` to `en` or `vi`. Default is `vi`.
 | `/slboss despawn [id]` | `slboss.despawn` | Despawn boss(es) |
 | `/slboss info` | `slboss.info` | Detailed boss status |
 | `/slboss list` | `slboss.info` | List all bosses |
+| `/slboss validate [id]` | `slboss.validate` | Check loaded boss configuration |
+| `/slboss stats [player]` | `slboss.stats` | View all-time player statistics |
+| `/slboss top <metric> [period] [boss]` | `slboss.top` | View a leaderboard |
 
 Alias: `/slbs`
 
@@ -56,6 +59,9 @@ Alias: `/slbs`
 | `slboss.spawn` | op | Force spawn bosses |
 | `slboss.despawn` | op | Despawn bosses |
 | `slboss.info` | true | View boss info and list |
+| `slboss.validate` | op | Validate boss configuration |
+| `slboss.stats` | true | View player statistics |
+| `slboss.top` | true | View leaderboards |
 | `slboss.*` | op | All permissions |
 
 ## PlaceholderAPI
@@ -86,6 +92,8 @@ Prefix: `%slbs_<bossId>.<placeholder>%`
 - **Leash System** -- Boss teleported back if too far from spawn
 - **State Persistence** -- Bosses survive server restarts
 - **Chunk Loading** -- Optional chunk loading at spawn location
+- **YAML Statistics** -- Async load and debounced atomic snapshots without a database driver
+- **Configuration Validation** -- `/slboss validate` catches invalid worlds, schedules, locations, mob pools, and rewards
 
 See [docs/wiki.html](docs/wiki.html) for detailed documentation.
 
@@ -97,7 +105,14 @@ See [docs/wiki.html](docs/wiki.html) for detailed documentation.
 - [Code Standards](docs/code-standards.md) - Development guidelines
 - [Wiki](docs/wiki.html) - Detailed feature documentation
 
-## Recent Updates (v3.0.1)
+## Recent Updates (v3.1.0)
+
+- Remove synchronous SQL startup and all JDBC/Hikari/SQLite/MySQL dependencies; statistics now load asynchronously from `statistics.yml` and flush in batches.
+- Keep `/slboss stats`, `/slboss top`, and statistics/top PlaceholderAPI expansions on the YAML store; per-player placeholders no longer depend on leaderboard rank.
+- Add `/slboss validate [id]` with localized diagnostics for worlds, coordinates, schedules, mob weights, and reward tiers.
+- Keep existing external SQL data files untouched; they are legacy data and are not imported automatically.
+
+## Earlier Updates (v3.0.1)
 
 - Keep scheduled bosses available in their spawn chunk; `loadChunks: true` holds a plugin chunk ticket until cleanup.
 - Log and recover when MythicMobs reports a spawn but the entity disappears immediately.
@@ -109,8 +124,7 @@ See [docs/wiki.html](docs/wiki.html) for detailed documentation.
 - Preserve exact online player names in reward commands, including Floodgate's default `.` prefix and digits. Offline commands resolve `{player}` when the player joins.
 - Repair known CMI and Mythic drop-table commands queued by older releases. Review old custom pending commands before affected players join.
 - Add `/slboss state forget <id>` for old boss state without a saved location; check the world for the old mob before using it.
-- Bundle MySQL Connector/J alongside SQLite JDBC in the plugin JAR for statistics storage.
-- Refresh Paper, MythicMobs, PlaceholderAPI, MMOItems, JDBC, and Maven build dependencies.
+- Refresh Paper, MythicMobs, PlaceholderAPI, MMOItems, and Maven build dependencies.
 
 ## Earlier Updates (v3.0.0)
 
@@ -133,7 +147,7 @@ See [CHANGELOG.md](docs/CHANGELOG.md) for complete details.
 mvn package
 ```
 
-Output: `target/SLBossSpawner-3.0.1.jar`
+Output: `target/SLBossSpawner-3.1.0.jar`
 
 ## Author
 

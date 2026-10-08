@@ -1,222 +1,96 @@
 # Codebase Summary
 
-## Project Overview
+## Project
 
-**Name:** FluffyBossSpawner (SLBossSpawner)
-**Version:** 2.0.1
-**Type:** Minecraft Plugin (Paper/Spigot)
-**Language:** Java 21
-**Build Tool:** Maven
-**Primary Dependency:** MythicMobs
+**Name:** SLBossSpawner
+**Version:** 3.1.0
+**Target:** Paper 1.21.11 / Java 21
+**Required integration:** MythicMobs 5.13.0
+**Optional integrations:** PlaceholderAPI 2.12.3, MMOItems 6.10.1-SNAPSHOT, MythicLib 1.7.1-SNAPSHOT
 
-## Architecture
+SLBossSpawner schedules MythicMobs bosses, tracks fight contributions, distributes
+tiered rewards, and persists live boss/offline reward state with YAML files.
 
-### Package Structure
+## Package map
 
-```
+```text
 dev.salyvn.slBossSpawner/
-├── boss/                    # Core boss management
-├── broadcast/              # Warning and notification system
-├── commands/               # Command handlers
-├── config/                 # Configuration management
-├── listener/               # Event handlers and tracking
-├── persist/                # Data persistence
-├── placeholder/            # PlaceholderAPI integration
-├── reward/                 # Reward distribution
-└── utils/                  # Utility classes
+├── boss/          # BossConfig, BossInstance, BossScheduler, entity helpers
+├── broadcast/     # Spawn countdowns and death announcements
+├── commands/      # /slboss executor and stats/top handlers
+├── config/        # Config, schedule, message loading, ConfigValidator
+├── listener/      # Boss death, damage, tank, and support tracking
+├── persist/       # boss-state.yml and pending-rewards.yml persistence
+├── placeholder/   # PlaceholderAPI boss, stats, and leaderboard expansion
+├── reward/        # Reward execution and item protection
+├── statistics/    # YAML store, period keys, stats manager, leaderboard facade
+└── utils/         # Color and time helpers
 ```
 
-### Module Breakdown (26 Java files)
+## Runtime flow
 
-#### Boss Management (`boss/`)
-- **BossConfig.java** - Boss configuration data model
-- **BossEntityHelper.java** - Entity manipulation utilities
-- **BossInstance.java** - Individual boss lifecycle management
-- **BossScheduler.java** - Spawn scheduling and timer coordination
+### Startup
 
-#### Broadcast System (`broadcast/`)
-- **BroadcastManager.java** - Centralized broadcast coordination
-- **SpawnWarningTask.java** - Countdown warning task
+`SLBossSpawner.onEnable()` loads configuration and schedules, starts the
+asynchronous `FileStatisticsStore`, registers trackers/listeners, then starts
+the boss scheduler. No network or JDBC initialization occurs on the server
+thread.
 
-#### Commands (`commands/`)
-- **BossCommand.java** - Command executor (`/slboss` and `/slbs`)
+### Spawn
 
-#### Configuration (`config/`)
-- **ConfigManager.java** - Main config loader
-- **MessageManager.java** - Multi-language message handling
-- **ScheduleManager.java** - Schedule config parser
+`BossScheduler` owns one `BossInstance` per configured ID. The instance resolves
+the world lazily, optionally holds a plugin chunk ticket, invokes MythicMobs,
+verifies the resulting entity, and records state for restart recovery.
 
-#### Event Listeners & Tracking (`listener/`)
-- **BossDeathListener.java** - Boss death event handler
-- **DamageTracker.java** - Damage contribution tracking
-- **DamageResult.java** - Damage ranking result
-- **SupportTracker.java** - Support action tracking
-- **SupportResult.java** - Support ranking result
-- **TankTracker.java** - Tank/absorption tracking
-- **TankResult.java** - Tank ranking result
+### Death, rewards, statistics
 
-#### Persistence (`persist/`)
-- **BossStateManager.java** - Boss state persistence across restarts
-- **PendingRewardManager.java** - Offline reward queue management
+`BossDeathListener` snapshots damage/tank/support results before tracker cleanup.
+`RewardManager` distributes online rewards or queues commands/items for the next
+join. `StatisticsManager` expands one fight into per-boss and `__global__`
+aggregates across seven periods, then sends updates to `FileStatisticsStore`.
 
-#### Placeholder Integration (`placeholder/`)
-- **BossPlaceholder.java** - PlaceholderAPI expansion
+The store keeps aggregates in a read/write locked map. It loads
+`plugins/SLBossSpawner/statistics.yml` on one worker, debounces writes, and
+replaces the file atomically through a temporary snapshot. Shutdown/reload
+flushes the latest map synchronously. Existing external SQL data files are not deleted or imported.
 
-#### Reward System (`reward/`)
-- **RewardManager.java** - Reward distribution coordinator
-- **ItemProtectionListener.java** - Owner-only item pickup
-- **PendingRewardListener.java** - Offline reward delivery
+## Public commands
 
-#### Core (`root`)
-- **SLBossSpawner.java** - Main plugin class
+- `/slboss reload` reloads messages, schedules, and the YAML statistics store.
+- `/slboss state forget <id>` releases a saved boss slot only after verification.
+- `/slboss spawn [id]`, `/slboss despawn [id]`, `/slboss info`, `/slboss list` manage boss lifecycle.
+- `/slboss validate [id]` reports world, coordinate, schedule, mob-pool, and reward configuration issues.
+- `/slboss stats [player]` reads all-time global player statistics.
+- `/slboss top <metric> [period] [boss]` sorts the YAML aggregates for a leaderboard.
 
-#### Utilities (`utils/`)
-- **ColorUtils.java** - Color code utilities
-- **TimeUtils.java** - Time formatting and parsing
+## Persistence files
 
-## Key Features
+| File | Owner | Purpose |
+|---|---|---|
+| `config.yml` | `ConfigManager` | Prefix, language, debug, YAML statistics settings |
+| `schedules.yml` | `ScheduleManager` | Boss locations, times, broadcasts, rewards |
+| `message.yml` / `message-vi.yml` | `MessageManager` | Localized command and broadcast text |
+| `boss-state.yml` | `BossStateManager` | Live/deferred boss state across restart |
+| `pending-rewards.yml` | `PendingRewardManager` | Offline command/item queue |
+| `statistics.yml` | `FileStatisticsStore` | Aggregated stats and leaderboard source |
 
-### 1. Scheduled Boss Spawning
-- Time-based scheduling with timezone support
-- Configurable spawn intervals and locations
-- Force spawn/despawn commands
-- State persistence across server restarts
+## Threading and safety
 
-### 2. Damage Tracking System
-Types tracked:
-- Direct melee/ranged damage
-- Projectile damage
-- Pet/tamed entity damage
-- TNT damage
-- Area effect damage
+- Bukkit entity, scheduler, and command operations stay on the server thread.
+- Statistics reads sort a bounded in-memory snapshot off-thread for command use;
+  PlaceholderAPI reads use the locked aggregate map without disk I/O.
+- YAML snapshots use a single writer and atomic replacement to avoid stale
+  writes. A failed write leaves the previous file intact.
+- Reward command inputs and pending commands retain the existing sanitization
+  rules; exact online player names are preserved for Floodgate/Bedrock names.
 
-### 3. Tiered Reward Distribution
-- Damage-based ranking
-- Last-hit bonus multiplier
-- Commands, vanilla items, MMOItems support
-- Offline reward queuing with YAML persistence
+## Build and verification
 
-### 4. Broadcast System
-- Spawn countdown warnings (chat, title, bossbar)
-- Death announcements
-- Configurable message templates
-- Multi-language support (EN, VI)
-
-### 5. Boss Mechanics
-- Leash system (teleport-back if too far from spawn)
-- Optional chunk loading at spawn location
-- Automatic cleanup on expiry
-- Spawn warning cancellation
-
-### 6. Integration
-- **MythicMobs** - Boss entity management (required)
-- **PlaceholderAPI** - Custom placeholders (optional)
-- **MMOItems** - Advanced item rewards (optional)
-
-## Data Flow
-
-### Spawn Workflow
-```
-BossScheduler.checkSpawns()
-  → BossInstance.spawn()
-  → MythicMobs API spawn
-  → SpawnWarningTask (countdown)
-  → BossStateManager.save() (persistence)
-```
-
-### Death & Reward Workflow
-```
-BossDeathListener.onMythicMobDeath()
-  → Tracker.buildResult() (damage/support/tank)
-  → RewardManager.distributeRewards()
-  → Command sanitization (C1 fix)
-  → PendingRewardManager.queueCommand() (offline players)
-  → BossInstance.cleanup()
-  → Tracker.stopTracking()
-```
-
-### Offline Reward Delivery
-```
-PlayerJoinEvent
-  → PendingRewardListener
-  → Load pending-rewards.yml
-  → Command validation (C2 fix)
-  → Bukkit.dispatchCommand()
-  → Remove from pending queue
-```
-
-## Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `config.yml` | General settings, prefix, debug, language |
-| `schedules.yml` | Boss spawn schedules, locations, broadcast |
-| `reward.yml` | Reward tiers, items, commands per boss |
-| `message.yml` | English messages |
-| `message-vi.yml` | Vietnamese messages |
-| `boss-state.yml` | Boss state persistence (auto-generated) |
-| `pending-rewards.yml` | Offline reward queue (auto-generated) |
-
-## Security Model
-
-### Input Sanitization
-1. **Player names** - Sanitized in `RewardManager:194` before command construction
-2. **Drop table names** - Sanitized in `RewardManager:211` (C1 fix)
-3. **Pending commands** - Validated in `PendingRewardListener:44` (C2 fix)
-
-### Thread Safety
-- Main plugin field `bossScheduler` marked volatile (H2 fix)
-- All command execution on main thread (Bukkit guarantee)
-- Timer tasks run on main thread via `runTaskTimer`
-
-### Data Integrity
-- YAML parsing with type checking (H3 fix)
-- Tracker cleanup after data read (H1 fix)
-- State persistence on shutdown (`saveSync`)
-
-## Recent Changes (v2.0.1)
-
-### Security Fixes
-- **C1**: Drop table name sanitization to prevent command injection
-- **C2**: Pending command validation against shell metacharacters
-
-### Bug Fixes
-- **H1**: Removed duplicate tracker cleanup calls
-- **H2**: Volatile scheduler reference for thread safety
-- **H3**: Safe YAML number parsing with instanceof check
-- **H4**: Calculate next spawn after force spawn
-
-See `CHANGELOG.md` and `security-fixes.md` for details.
-
-## Code Metrics
-
-- **Total Java files**: 26
-- **LOC**: ~2,500 (estimated)
-- **Package count**: 8
-- **External dependencies**: MythicMobs (required), PlaceholderAPI (optional), MMOItems (optional)
-
-## Build & Test
-
-**Build command:**
 ```bash
-mvn package
+mvn clean package
 ```
 
-**Output:** `target/SLBossSpawner-2.0.0.jar`
-
-**Test coverage:** Not currently implemented
-
-## Documentation
-
-- `README.md` - Setup and usage guide
-- `docs/wiki.html` - Detailed feature documentation
-- `docs/CHANGELOG.md` - Version history
-- `docs/security-fixes.md` - Security implementation details
-- `docs/codebase-summary.md` - This file
-
-## Known Limitations
-
-1. Empty drop table names after sanitization fail silently (low impact)
-2. Reload during death event processing may reference old scheduler (pre-existing edge case)
-3. No automated test coverage
-4. Thread safety relies on Bukkit main-thread guarantees
+The shaded output is `target/SLBossSpawner-3.1.0.jar`. There is no SQL driver or
+connection-pool dependency in the build. The current repository has no automated
+unit test suite; Maven compilation and packaged-jar inspection are the primary
+release checks.

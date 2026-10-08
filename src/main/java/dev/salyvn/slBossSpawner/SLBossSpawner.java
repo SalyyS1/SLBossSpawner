@@ -6,11 +6,12 @@ import dev.salyvn.slBossSpawner.commands.BossCommand;
 import dev.salyvn.slBossSpawner.config.ConfigManager;
 import dev.salyvn.slBossSpawner.config.MessageManager;
 import dev.salyvn.slBossSpawner.config.ScheduleManager;
-import dev.salyvn.slBossSpawner.database.DatabaseManager;
 import dev.salyvn.slBossSpawner.listener.BossDeathListener;
 import dev.salyvn.slBossSpawner.statistics.CalendarQuarterSeasonResolver;
+import dev.salyvn.slBossSpawner.statistics.FileStatisticsStore;
 import dev.salyvn.slBossSpawner.statistics.LeaderboardCache;
 import dev.salyvn.slBossSpawner.statistics.StatisticsManager;
+import dev.salyvn.slBossSpawner.statistics.StatisticsStore;
 import dev.salyvn.slBossSpawner.listener.DamageTracker;
 import dev.salyvn.slBossSpawner.listener.SupportTracker;
 import dev.salyvn.slBossSpawner.listener.TankTracker;
@@ -39,7 +40,7 @@ public final class SLBossSpawner extends JavaPlugin {
     private RewardManager rewardManager;
     private ItemProtectionListener itemProtectionListener;
     private BossPlaceholder placeholder;
-    private DatabaseManager databaseManager;
+    private StatisticsStore statisticsStore;
     private StatisticsManager statisticsManager;
     private LeaderboardCache leaderboardCache;
 
@@ -57,25 +58,7 @@ public final class SLBossSpawner extends JavaPlugin {
         configManager = new ConfigManager(this);
         messageManager = new MessageManager(this);
         scheduleManager = new ScheduleManager(this);
-
-        if (configManager.isStatisticsEnabled()) {
-            databaseManager = DatabaseManager.create(this, configManager.getDatabaseType());
-            try {
-                databaseManager.initialize();
-                getLogger().info("Statistics database initialized (" + configManager.getDatabaseType() + ")");
-            } catch (Exception e) {
-                getLogger().severe("Failed to initialize statistics database: " + e.getMessage());
-                databaseManager = null;
-            }
-        }
-
-        if (databaseManager != null) {
-            statisticsManager = new StatisticsManager(this, databaseManager, new CalendarQuarterSeasonResolver());
-            statisticsManager.startArchivalScheduler();
-            leaderboardCache = new LeaderboardCache(this, databaseManager, statisticsManager.getSeasonResolver());
-            leaderboardCache.start();
-            getLogger().info("Statistics system enabled!");
-        }
+        initializeStatistics();
 
         broadcastManager = new BroadcastManager(this);
 
@@ -126,17 +109,7 @@ public final class SLBossSpawner extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (leaderboardCache != null) {
-            leaderboardCache.stop();
-        }
-
-        if (statisticsManager != null) {
-            statisticsManager.shutdown();
-        }
-
-        if (databaseManager != null) {
-            databaseManager.shutdown();
-        }
+        shutdownStatistics();
 
         if (bossStateManager != null && bossScheduler != null) {
             bossStateManager.saveAll();
@@ -208,35 +181,9 @@ public final class SLBossSpawner extends JavaPlugin {
             }
         }
 
-        // Recreate DB connection with potentially updated config
-        if (leaderboardCache != null) {
-            leaderboardCache.stop();
-            leaderboardCache = null;
-        }
-        if (statisticsManager != null) {
-            statisticsManager.shutdown();
-            statisticsManager = null;
-        }
-        if (databaseManager != null) {
-            databaseManager.shutdown();
-            databaseManager = null;
-        }
-        if (configManager.isStatisticsEnabled()) {
-            databaseManager = DatabaseManager.create(this, configManager.getDatabaseType());
-            try {
-                databaseManager.initialize();
-                getLogger().info("Statistics database reinitialized (" + configManager.getDatabaseType() + ")");
-            } catch (Exception e) {
-                getLogger().severe("Failed to reinitialize statistics database: " + e.getMessage());
-                databaseManager = null;
-            }
-        }
-        if (databaseManager != null) {
-            statisticsManager = new StatisticsManager(this, databaseManager, new CalendarQuarterSeasonResolver());
-            statisticsManager.startArchivalScheduler();
-            leaderboardCache = new LeaderboardCache(this, databaseManager, statisticsManager.getSeasonResolver());
-            leaderboardCache.start();
-        }
+        // Recreate the lightweight YAML store with potentially updated config.
+        shutdownStatistics();
+        initializeStatistics();
 
         // Remove bosses whose schedule was deleted; retain the others so reload
         // can attach the new scheduler to their live MythicMobs entities.
@@ -324,8 +271,8 @@ public final class SLBossSpawner extends JavaPlugin {
         return rewardManager;
     }
 
-    public DatabaseManager getDatabaseManager() {
-        return databaseManager;
+    public StatisticsStore getStatisticsStore() {
+        return statisticsStore;
     }
 
     public StatisticsManager getStatisticsManager() {
@@ -334,5 +281,34 @@ public final class SLBossSpawner extends JavaPlugin {
 
     public LeaderboardCache getLeaderboardCache() {
         return leaderboardCache;
+    }
+
+    private void initializeStatistics() {
+        if (!configManager.isStatisticsEnabled()) {
+            return;
+        }
+
+        FileStatisticsStore store = new FileStatisticsStore(this,
+                configManager.getStatisticsFlushSeconds());
+        statisticsStore = store;
+        statisticsManager = new StatisticsManager(this, store, new CalendarQuarterSeasonResolver());
+        leaderboardCache = new LeaderboardCache(this, store, statisticsManager.getSeasonResolver());
+        store.start();
+        getLogger().info("Statistics system enabled (async YAML store: statistics.yml)");
+    }
+
+    private void shutdownStatistics() {
+        if (leaderboardCache != null) {
+            leaderboardCache.stop();
+            leaderboardCache = null;
+        }
+        if (statisticsManager != null) {
+            statisticsManager.shutdown();
+            statisticsManager = null;
+        }
+        if (statisticsStore != null) {
+            statisticsStore.shutdown();
+            statisticsStore = null;
+        }
     }
 }

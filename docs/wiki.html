@@ -281,7 +281,7 @@
 <aside class="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo"><span class="sl">SL</span><span class="bs">BossSpawner</span></div>
-    <div class="sidebar-ver">v3.0.1 &mdash; MythicMobs Integration</div>
+    <div class="sidebar-ver">v3.1.0 &mdash; MythicMobs Integration</div>
   </div>
   <nav>
     <div class="nav-group" lang-en>Getting Started</div>
@@ -371,14 +371,14 @@
 
 <ul class="checklist" lang-en>
   <li><span class="check">+</span> <span>Use <strong>Paper 1.21.11 / Java 21</strong> and install <strong>MythicMobs 5.13.0</strong></span></li>
-  <li><span class="check">+</span> <span>Place <code>SLBossSpawner-3.0.1.jar</code> into <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Place <code>SLBossSpawner-3.1.0.jar</code> into <code>plugins/</code></span></li>
   <li><span class="check">+</span> <span>Restart the server &mdash; config files are generated automatically</span></li>
   <li><span class="check">+</span> <span>Edit configs in <code>plugins/SLBossSpawner/</code></span></li>
   <li><span class="check">+</span> <span>Run <code>/slboss reload</code> to apply changes</span></li>
 </ul>
 <ul class="checklist" lang-vi>
   <li><span class="check">+</span> <span>Dùng <strong>Paper 1.21.11 / Java 21</strong> và cài <strong>MythicMobs 5.13.0</strong></span></li>
-  <li><span class="check">+</span> <span>Bỏ file <code>SLBossSpawner-3.0.1.jar</code> vào thư mục <code>plugins/</code></span></li>
+  <li><span class="check">+</span> <span>Bỏ file <code>SLBossSpawner-3.1.0.jar</code> vào thư mục <code>plugins/</code></span></li>
   <li><span class="check">+</span> <span>Restart server &mdash; các file config sẽ được tạo tự động</span></li>
   <li><span class="check">+</span> <span>Chỉnh cấu hình trong <code>plugins/SLBossSpawner/</code></span></li>
   <li><span class="check">+</span> <span>Gõ <code>/slboss reload</code> để áp dụng</span></li>
@@ -768,9 +768,9 @@ random-loot:
 <h2 id="statistics"><span lang-en>Statistics & Leaderboard</span><span lang-vi>Thống kê & Bảng xếp hạng</span></h2>
 
 <div class="callout callout-info">
-  <strong lang-en>Requires database</strong><strong lang-vi>Cần cơ sở dữ liệu</strong>
-  <span lang-en>Enable in <code>config.yml → statistics.enabled: true</code>. Supports SQLite (default) and MySQL.</span>
-  <span lang-vi>Bật trong <code>config.yml → statistics.enabled: true</code>. Hỗ trợ SQLite (mặc định) và MySQL.</span>
+  <strong lang-en>YAML storage</strong><strong lang-vi>Lưu bằng YAML</strong>
+  <span lang-en>Enable in <code>config.yml → statistics.enabled: true</code>. The store loads asynchronously from <code>statistics.yml</code> and writes debounced atomic snapshots.</span>
+  <span lang-vi>Bật trong <code>config.yml → statistics.enabled: true</code>. Hệ thống tải bất đồng bộ từ <code>statistics.yml</code> và ghi snapshot nguyên tử theo lô.</span>
 </div>
 
 <h3 lang-en>Tracked Metrics</h3><h3 lang-vi>Chỉ số theo dõi</h3>
@@ -795,32 +795,21 @@ random-loot:
 </table>
 
 <h3 lang-en>Period Types</h3><h3 lang-vi>Loại kỳ</h3>
-<p lang-en>Statistics are tracked across 7 period types: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Old periods are automatically archived.</p>
-<p lang-vi>Thống kê được theo dõi qua 7 loại kỳ: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Các kỳ cũ tự động được lưu trữ.</p>
+<p lang-en>Statistics are tracked across 7 period types: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Period rows stay in the YAML snapshot so history remains available without an archive job.</p>
+<p lang-vi>Thống kê được theo dõi qua 7 loại kỳ: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>quarterly</code>, <code>seasonal</code>, <code>yearly</code>, <code>alltime</code>. Các dòng kỳ được giữ trong snapshot YAML để không cần job lưu trữ.</p>
 
-<h3 lang-en>Leaderboard Cache</h3><h3 lang-vi>Cache bảng xếp hạng</h3>
-<p lang-en>An in-memory cache refreshes every <code>cache.refresh-seconds</code> (default 60s). All placeholder reads are instant and non-blocking. Cache covers ALL_TIME and DAILY periods for all 11 metrics.</p>
-<p lang-vi>Bộ nhớ đệm được làm mới mỗi <code>cache.refresh-seconds</code> (mặc định 60 giây). Tất cả placeholder đọc từ cache, không gây lag. Cache bao gồm kỳ ALL_TIME và DAILY cho tất cả 11 chỉ số.</p>
+<h3 lang-en>In-memory leaderboard</h3><h3 lang-vi>Bảng xếp hạng trong bộ nhớ</h3>
+<p lang-en>Leaderboard reads sort the in-memory YAML aggregates and do not run a repeating database query. Configure the flush delay and result limit with <code>statistics.flush-seconds</code> and <code>statistics.leaderboard-size</code>.</p>
+<p lang-vi>Bảng xếp hạng sắp xếp aggregate YAML trong bộ nhớ và không chạy truy vấn database lặp lại. Cấu hình thời gian ghi và giới hạn kết quả bằng <code>statistics.flush-seconds</code> và <code>statistics.leaderboard-size</code>.</p>
 
-<h3 lang-en>Database Configuration</h3><h3 lang-vi>Cấu hình cơ sở dữ liệu</h3>
+<h3 lang-en>Statistics Configuration</h3><h3 lang-vi>Cấu hình thống kê</h3>
 <pre><code>statistics:
   enabled: true
-  database:
-    type: sqlite          # sqlite or mysql
-    table-prefix: "slbs_"
-    mysql:
-      host: localhost
-      port: 3306
-      database: minecraft
-      username: root
-      password: ""
-      pool-size: 5
-  cache:
-    refresh-seconds: 60
-    leaderboard-size: 100</code></pre>
+  flush-seconds: 2
+  leaderboard-size: 100</code></pre>
 
-<p lang-en>MySQL statistics storage supports MySQL Server 5.7 or later. The plugin JAR includes Connector/J; no separate driver JAR is needed.</p>
-<p lang-vi>Chế độ lưu thống kê MySQL hỗ trợ MySQL Server 5.7 trở lên. File plugin đã chứa Connector/J; không cần thêm file driver riêng.</p>
+<p lang-en>Existing external SQL data files are left untouched and are not imported automatically. If an old <code>statistics.database</code> section is still present, it is ignored and a migration warning is logged.</p>
+<p lang-vi>File dữ liệu SQL bên ngoài cũ được giữ nguyên và không tự động nhập. Nếu còn mục <code>statistics.database</code>, plugin sẽ bỏ qua và ghi cảnh báo migration.</p>
 
 <!-- COMMANDS -->
 <h2 id="commands"><span lang-en>Commands</span><span lang-vi>Lệnh</span></h2>
@@ -871,6 +860,11 @@ random-loot:
       <td><code>/slboss list</code></td>
       <td><code>slboss.info</code></td>
       <td lang-en>List all configured bosses</td><td lang-vi>Liệt kê các Boss đã cấu hình</td>
+    </tr>
+    <tr>
+      <td><code>/slboss validate [bossId]</code></td>
+      <td><code>slboss.validate</code></td>
+      <td lang-en>Check worlds, locations, schedules, mob pools, and rewards</td><td lang-vi>Kiểm tra world, vị trí, lịch, mob pool và phần thưởng</td>
     </tr>
     <tr>
       <td><code>/slboss stats [player]</code></td>
@@ -1068,6 +1062,19 @@ random-loot:
 <!-- CHANGELOG -->
 <h2 id="changelog"><span lang-en>Changelog</span><span lang-vi>Nhật ký thay đổi</span></h2>
 
+<h3>v3.1.0 <span style="color:var(--text-muted)">(2026-10-09)</span></h3>
+<h4 lang-en>Statistics and diagnostics</h4><h4 lang-vi>Thống kê và kiểm tra cấu hình</h4>
+<ul>
+  <li lang-en>Replace SQL/JDBC statistics storage with asynchronously loaded, debounced atomic <code>statistics.yml</code> snapshots</li>
+  <li lang-vi>Thay lưu thống kê SQL/JDBC bằng snapshot <code>statistics.yml</code> tải bất đồng bộ, gộp ghi và thay file nguyên tử</li>
+  <li lang-en>Keep <code>/slboss stats</code>, <code>/slboss top</code>, and statistics/top PlaceholderAPI expansions on the YAML store</li>
+  <li lang-vi>Giữ <code>/slboss stats</code>, <code>/slboss top</code> và PlaceholderAPI thống kê/top trên kho YAML</li>
+  <li lang-en>Add <code>/slboss validate [bossId]</code> for world, coordinate, schedule, mob-pool, and reward diagnostics</li>
+  <li lang-vi>Thêm <code>/slboss validate [bossId]</code> để kiểm tra world, tọa độ, lịch, mob pool và phần thưởng</li>
+  <li lang-en>Leave legacy external SQL data files untouched; no automatic import is performed</li>
+  <li lang-vi>Giữ nguyên file dữ liệu SQL bên ngoài cũ; không tự động nhập dữ liệu</li>
+</ul>
+
 <h3>v3.0.1 <span style="color:var(--text-muted)">(2026-09-29)</span></h3>
 <h4 lang-en>Fixed</h4><h4 lang-vi>Sửa lỗi</h4>
 <ul>
@@ -1166,7 +1173,7 @@ random-loot:
 
 <!-- Footer -->
 <div class="footer">
-  SLBossSpawner v3.0.1 &mdash; Author: <strong>SalyVn</strong>
+  SLBossSpawner v3.1.0 &mdash; Author: <strong>SalyVn</strong>
 </div>
 
 </main>

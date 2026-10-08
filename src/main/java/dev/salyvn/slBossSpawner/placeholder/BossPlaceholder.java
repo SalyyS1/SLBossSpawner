@@ -3,8 +3,10 @@ package dev.salyvn.slBossSpawner.placeholder;
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossInstance;
 import dev.salyvn.slBossSpawner.boss.BossScheduler;
-import dev.salyvn.slBossSpawner.database.LeaderboardRow;
 import dev.salyvn.slBossSpawner.statistics.LeaderboardCache;
+import dev.salyvn.slBossSpawner.statistics.LeaderboardRow;
+import dev.salyvn.slBossSpawner.statistics.PlayerStatsRow;
+import dev.salyvn.slBossSpawner.statistics.StatisticsStore;
 import dev.salyvn.slBossSpawner.utils.TimeUtils;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
@@ -173,11 +175,12 @@ public class BossPlaceholder extends PlaceholderExpansion {
      * %slbs_stats_<metric>% → ALL_TIME / all / __global__
      * %slbs_stats_<metric>_<period>% → period / key / __global__
      * %slbs_stats_<metric>_<period>_<boss>% → period / key / boss
-     * Searches cache top-N for the requesting player. Returns "0" if not found.
+     * Reads the player's aggregate directly so a player outside the configured
+     * leaderboard size still receives an accurate value.
      */
     private String handleStatsPlaceholder(OfflinePlayer player, String remainder) {
-        LeaderboardCache leaderboardCache = plugin.getLeaderboardCache();
-        if (leaderboardCache == null)
+        StatisticsStore store = plugin.getStatisticsStore();
+        if (store == null)
             return "0";
 
         String[] parts = remainder.split("_");
@@ -201,15 +204,30 @@ public class BossPlaceholder extends PlaceholderExpansion {
             bossId = parts[2];
         }
 
-        List<LeaderboardRow> rows = leaderboardCache.getTopPlayers(metric, periodType, periodKey, bossId);
-        String uuid = player.getUniqueId().toString();
-
-        for (LeaderboardRow row : rows) {
-            if (row.playerUuid().equals(uuid)) {
-                return formatDouble(row.value());
-            }
+        String resolvedMetric = LeaderboardCache.metricToColumn(metric);
+        if (resolvedMetric == null) {
+            return null;
         }
-        return "0";
+        PlayerStatsRow stats = store.getPlayerStats(player.getUniqueId().toString(),
+                periodType, periodKey, bossId);
+        return stats == null ? "0" : formatDouble(metricValue(stats, resolvedMetric));
+    }
+
+    private double metricValue(PlayerStatsRow stats, String metric) {
+        return switch (metric) {
+            case "damage" -> stats.totalDamage();
+            case "kills" -> stats.kills();
+            case "participations" -> stats.participations();
+            case "tank" -> stats.totalDamageTaken();
+            case "support" -> stats.totalSupportScore();
+            case "top1" -> stats.top1Count();
+            case "top2" -> stats.top2Count();
+            case "top3" -> stats.top3Count();
+            case "top1tank" -> stats.top1TankCount();
+            case "top1support" -> stats.top1SupportCount();
+            case "bestdamage" -> stats.highestDamage();
+            default -> 0D;
+        };
     }
 
     /**

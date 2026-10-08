@@ -2,6 +2,24 @@
 
 All notable changes to SLBossSpawner will be documented in this file.
 
+## [3.1.0] - 2026-10-09
+
+### Added
+
+- Added `/slboss validate [id]` with localized checks for loaded worlds, spawn coordinates, schedules, MythicMob pools, and reward tiers.
+- Added asynchronous YAML statistics snapshots in `plugins/SLBossSpawner/statistics.yml` with debounced writes and atomic replacement.
+
+### Fixed
+
+- Removed synchronous database initialization from server startup and reload.
+- Removed JDBC, HikariCP, SQLite, and MySQL dependencies from the plugin JAR, reducing the packaged artifact to the plugin's runtime classes and resources.
+- Preserved `/slboss stats`, `/slboss top`, and statistics/top PlaceholderAPI expansions on the YAML store. Player statistics placeholders now read the requested player's aggregate directly instead of searching only the leaderboard cache.
+
+### Migration notes
+
+- Existing external SQL data files are left untouched and are not imported automatically. New statistics are written to `statistics.yml`; copy or export legacy data separately if it must be retained.
+- Existing `statistics.database` settings are ignored after reload and a migration warning is logged. Use `statistics.flush-seconds` and `statistics.leaderboard-size` instead.
+
 ## [3.0.1] - 2026-09-29
 
 ### Added

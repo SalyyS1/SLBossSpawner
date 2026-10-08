@@ -25,7 +25,7 @@ public class MessageManager {
         "help-header", "help-footer", "help-usage",
         "info-header", "info-footer",
         "list-header", "list-footer", "ranking-header", "ranking-footer",
-        "stats-header", "stats-footer",
+        "stats-header", "stats-footer", "validate-header", "validate-footer",
         "top-header", "top-footer"
     );
 

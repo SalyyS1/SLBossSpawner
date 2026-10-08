@@ -1,14 +1,9 @@
 package dev.salyvn.slBossSpawner.statistics;
 
 import dev.salyvn.slBossSpawner.SLBossSpawner;
-import dev.salyvn.slBossSpawner.database.DatabaseManager;
-import dev.salyvn.slBossSpawner.database.StatsUpdate;
-import dev.salyvn.slBossSpawner.database.StatsUpdateBatch;
 import dev.salyvn.slBossSpawner.listener.DamageResult;
 import dev.salyvn.slBossSpawner.listener.SupportResult;
 import dev.salyvn.slBossSpawner.listener.TankResult;
-import org.bukkit.Bukkit;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -17,32 +12,24 @@ import java.util.*;
 /**
  * Core statistics processor. Converts boss death data into per-player
  * StatsUpdateBatch entries (per-boss + __global__, all 7 period types)
- * and writes them asynchronously. Runs hourly archival checks for period rollovers.
+ * and sends them to the asynchronous YAML store. The store owns persistence and
+ * debounces disk writes so a boss death never performs file I/O on the server
+ * thread.
  */
 public class StatisticsManager {
     private final SLBossSpawner plugin;
-    private final DatabaseManager db;
+    private final StatisticsStore store;
     private final SeasonResolver seasonResolver;
-    private BukkitTask archivalTask;
-    private final Map<PeriodType, String> lastPeriodKeys = new EnumMap<>(PeriodType.class);
 
-    public StatisticsManager(SLBossSpawner plugin, DatabaseManager db, SeasonResolver seasonResolver) {
+    public StatisticsManager(SLBossSpawner plugin, StatisticsStore store, SeasonResolver seasonResolver) {
         this.plugin = plugin;
-        this.db = db;
+        this.store = store;
         this.seasonResolver = seasonResolver;
-        initializePeriodKeys();
-    }
-
-    private void initializePeriodKeys() {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        for (PeriodType type : PeriodType.ARCHIVABLE) {
-            lastPeriodKeys.put(type, type.computeKey(today, seasonResolver));
-        }
     }
 
     public void recordBossDeath(String bossId, DamageResult damage, TankResult tank,
                                 SupportResult support, UUID killerUuid) {
-        if (db == null) return;
+        if (store == null) return;
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
 
@@ -62,15 +49,8 @@ public class StatisticsManager {
 
         List<StatsUpdateBatch> batch = buildBatch(bossId, damage, tank, support, killerUuid, allPlayers, periodKeys);
 
-        // Async write — never block the main thread
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                db.batchUpsertStats(batch);
-                plugin.debug("Recorded stats for " + allPlayers.size() + " players, " + batch.size() + " rows");
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to record statistics: " + e.getMessage());
-            }
-        });
+        store.record(batch);
+        plugin.debug("Recorded stats for " + allPlayers.size() + " players, " + batch.size() + " rows");
     }
 
     private List<StatsUpdateBatch> buildBatch(String bossId, DamageResult damage, TankResult tank,
@@ -130,36 +110,9 @@ public class StatisticsManager {
         return batch;
     }
 
-    public void startArchivalScheduler() {
-        // 20 ticks/sec × 60 sec × 60 min = 72000 ticks per hour
-        archivalTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
-                plugin, this::checkAndArchive, 72000L, 72000L);
-    }
-
-    private void checkAndArchive() {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        for (PeriodType type : PeriodType.ARCHIVABLE) {
-            String currentKey = type.computeKey(today, seasonResolver);
-            String lastKey = lastPeriodKeys.get(type);
-            if (lastKey != null && !lastKey.equals(currentKey)) {
-                try {
-                    int archived = db.archivePeriod(type.name(), lastKey);
-                    plugin.getLogger().info(
-                            "Archived " + type + " period " + lastKey + " (" + archived + " rows)");
-                } catch (Exception e) {
-                    plugin.getLogger().warning(
-                            "Failed to archive " + type + " period " + lastKey + ": " + e.getMessage());
-                }
-                lastPeriodKeys.put(type, currentKey);
-            }
-        }
-    }
-
     public void shutdown() {
-        if (archivalTask != null) {
-            archivalTask.cancel();
-            archivalTask = null;
-        }
+        // The StatisticsStore owns its writer and is flushed by the plugin
+        // after the manager is detached from event processing.
     }
 
     public SeasonResolver getSeasonResolver() { return seasonResolver; }

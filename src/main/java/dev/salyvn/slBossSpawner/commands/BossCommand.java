@@ -2,6 +2,8 @@ package dev.salyvn.slBossSpawner.commands;
 
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.boss.BossInstance;
+import dev.salyvn.slBossSpawner.boss.BossConfig;
+import dev.salyvn.slBossSpawner.config.ConfigValidator;
 import dev.salyvn.slBossSpawner.config.MessageManager;
 import dev.salyvn.slBossSpawner.utils.TimeUtils;
 import org.bukkit.Bukkit;
@@ -118,6 +120,13 @@ public class BossCommand implements CommandExecutor, TabCompleter {
                 }
                 sendList(sender);
             }
+            case "validate" -> {
+                if (!sender.hasPermission("slboss.validate")) {
+                    sender.sendMessage(messageManager.getMessage("no-permission"));
+                    return true;
+                }
+                sendValidation(sender, args);
+            }
             case "info" -> {
                 if (!sender.hasPermission("slboss.info")) {
                     sender.sendMessage(messageManager.getMessage("no-permission"));
@@ -162,6 +171,8 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messageManager.getMessage("help-info"));
             sender.sendMessage(messageManager.getMessage("help-list"));
         }
+        if (sender.hasPermission("slboss.validate"))
+            sender.sendMessage(messageManager.getMessage("help-validate"));
         if (sender.hasPermission("slboss.stats"))
             sender.sendMessage(messageManager.getMessage("help-stats"));
         if (sender.hasPermission("slboss.top"))
@@ -193,6 +204,50 @@ public class BossCommand implements CommandExecutor, TabCompleter {
         }
 
         sender.sendMessage(messageManager.getMessage("list-footer"));
+    }
+
+    private void sendValidation(CommandSender sender, String[] args) {
+        if (args.length > 2) {
+            sender.sendMessage(messageManager.getMessage("validate-usage"));
+            return;
+        }
+
+        Map<String, BossConfig> configs = plugin.getScheduleManager().getAllBossConfigs();
+        if (args.length == 2) {
+            BossConfig config = configs.get(args[1]);
+            if (config == null) {
+                sender.sendMessage(messageManager.getMessage("validate-boss-not-found",
+                        Map.of("boss_id", args[1])));
+                return;
+            }
+            configs = Map.of(args[1], config);
+        }
+
+        sender.sendMessage(messageManager.getMessage("validate-header"));
+        if (configs.isEmpty()) {
+            sender.sendMessage(messageManager.getMessage("validate-warning",
+                    Map.of("boss_id", "*", "issue", "no boss configurations are loaded")));
+        } else {
+            configs.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+                    .forEach(entry -> sendValidationResult(sender, entry.getKey(), entry.getValue()));
+        }
+        sender.sendMessage(messageManager.getMessage("validate-footer"));
+    }
+
+    private void sendValidationResult(CommandSender sender, String bossId, BossConfig config) {
+        List<ConfigValidator.Issue> issues = ConfigValidator.validate(config);
+        if (issues.isEmpty()) {
+            sender.sendMessage(messageManager.getMessage("validate-ok", Map.of("boss_id", bossId)));
+            return;
+        }
+        for (ConfigValidator.Issue issue : issues) {
+            String key = issue.severity() == ConfigValidator.Severity.ERROR
+                    ? "validate-error" : "validate-warning";
+            sender.sendMessage(messageManager.getMessage(key, Map.of(
+                    "boss_id", bossId,
+                    "issue", issue.message())));
+        }
     }
 
     private void sendInfo(CommandSender sender) {
@@ -240,9 +295,11 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             List<String> completions = new ArrayList<>();
             String input = args[0].toLowerCase();
 
-            List<String> subcommands = Arrays.asList("help", "reload", "state", "spawn", "despawn", "info", "list", "stats", "top");
+            List<String> subcommands = Arrays.asList("help", "reload", "state", "spawn", "despawn", "info", "list", "validate", "stats", "top");
             for (String sub : subcommands) {
-                if (sub.startsWith(input) && (!sub.equals("state") || sender.hasPermission("slboss.state"))) {
+                boolean visible = !sub.equals("state") || sender.hasPermission("slboss.state");
+                visible = visible && (!sub.equals("validate") || sender.hasPermission("slboss.validate"));
+                if (sub.startsWith(input) && visible) {
                     completions.add(sub);
                 }
             }
@@ -267,6 +324,15 @@ public class BossCommand implements CommandExecutor, TabCompleter {
             return plugin.getBossScheduler().getAllBossInstances().keySet().stream()
                 .filter(id -> id.toLowerCase().startsWith(input))
                 .collect(Collectors.toList());
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("validate")
+                && sender.hasPermission("slboss.validate")) {
+            String input = args[1].toLowerCase();
+            return plugin.getScheduleManager().getAllBossConfigs().keySet().stream()
+                    .filter(id -> id.toLowerCase().startsWith(input))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.toList());
         }
 
         if (args[0].equalsIgnoreCase("top") && args.length >= 2) {

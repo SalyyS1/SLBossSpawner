@@ -25,6 +25,7 @@ help-spawn: "  &#FFD93D/slboss spawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFSpawn boss (
 help-despawn: "  &#FFD93D/slboss despawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFDespawn boss (all if no id)"
 help-info: "  &#FFD93D/slboss info &#8B8B8B- &#FFFFFFDetailed boss status & timers"
 help-list: "  &#FFD93D/slboss list &#8B8B8B- &#FFFFFFQuick boss overview"
+help-validate: "  &#FFD93D/slboss validate &#8B8B8B[id] &#8B8B8B- &#FFFFFFCheck boss configuration"
 help-help: "  &#FFD93D/slboss help &#8B8B8B- &#FFFFFFShow this help menu"
 help-footer: "  &#8B8B8BAliases: /slbs | Permissions: slboss.*\n&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -34,6 +35,14 @@ info-current: "    &#6BCB77Boss: &#FFFFFF{current_boss}"
 info-next: "    &#4D96FFNext: &#FFFFFF{next_formatted} &#8B8B8B({next_time})"
 info-expire: "    &#FF6B6BExpires: &#FFFFFF{expire_time}"
 info-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+validate-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lConfiguration Check &#FF6B6B&l━━━━━━"
+validate-ok: "  &#6BCB77✔ {boss_id}: configuration looks valid."
+validate-error: "  &#FF6B6B✖ {boss_id}: {issue}"
+validate-warning: "  &#FFD93D⚠ {boss_id}: {issue}"
+validate-boss-not-found: "&#FF6B6BNo boss configuration found for &#FFFFFF{boss_id}&#FF6B6B."
+validate-usage: "&#FFD93DUsage: /slboss validate [bossId]"
+validate-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 list-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lBoss List &#FF6B6B&l━━━━━━"
 list-entry: "  &#FFD93D● {boss_id} &#8B8B8B- &#FFFFFF{mythicmob} {status}"

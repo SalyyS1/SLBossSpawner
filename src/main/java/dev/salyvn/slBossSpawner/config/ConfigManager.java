@@ -13,15 +13,7 @@ public class ConfigManager {
 
     // Statistics config
     private boolean statisticsEnabled;
-    private String databaseType;
-    private String mysqlHost;
-    private int mysqlPort;
-    private String mysqlDatabase;
-    private String mysqlUsername;
-    private String mysqlPassword;
-    private String tablePrefix;
-    private int mysqlPoolSize;
-    private int cacheRefreshSeconds;
+    private int statisticsFlushSeconds;
     private int leaderboardSize;
 
     public ConfigManager(SLBossSpawner plugin) {
@@ -40,16 +32,16 @@ public class ConfigManager {
 
         // Statistics
         statisticsEnabled = config.getBoolean("statistics.enabled", true);
-        databaseType = config.getString("statistics.database.type", "sqlite");
-        mysqlHost = config.getString("statistics.database.mysql.host", "localhost");
-        mysqlPort = config.getInt("statistics.database.mysql.port", 3306);
-        mysqlDatabase = config.getString("statistics.database.mysql.database", "minecraft");
-        mysqlUsername = config.getString("statistics.database.mysql.username", "root");
-        mysqlPassword = config.getString("statistics.database.mysql.password", "");
-        tablePrefix = config.getString("statistics.database.table-prefix", "slbs_");
-        mysqlPoolSize = config.getInt("statistics.database.mysql.pool-size", 5);
-        cacheRefreshSeconds = config.getInt("statistics.cache.refresh-seconds", 60);
-        leaderboardSize = config.getInt("statistics.cache.leaderboard-size", 100);
+        statisticsFlushSeconds = clamp(config.getInt("statistics.flush-seconds", 2), 1, 60);
+        // Keep the old cache limit as a harmless compatibility fallback while
+        // ignoring all legacy database connection settings.
+        leaderboardSize = clamp(config.getInt("statistics.leaderboard-size",
+                config.getInt("statistics.cache.leaderboard-size", 100)), 1, 500);
+
+        if (config.isConfigurationSection("statistics.database")) {
+            plugin.getLogger().warning("The legacy statistics.database section is ignored. "
+                    + "Statistics are now stored in statistics.yml.");
+        }
     }
 
     public String getPrefix() { return prefix; }
@@ -57,16 +49,12 @@ public class ConfigManager {
     public String getLanguage() { return language; }
 
     public boolean isStatisticsEnabled() { return statisticsEnabled; }
-    public String getDatabaseType() { return databaseType; }
-    public String getMysqlHost() { return mysqlHost; }
-    public int getMysqlPort() { return mysqlPort; }
-    public String getMysqlDatabase() { return mysqlDatabase; }
-    public String getMysqlUsername() { return mysqlUsername; }
-    public String getMysqlPassword() { return mysqlPassword; }
-    public String getTablePrefix() { return tablePrefix; }
-    public int getMysqlPoolSize() { return mysqlPoolSize; }
-    public int getCacheRefreshSeconds() { return cacheRefreshSeconds; }
+    public int getStatisticsFlushSeconds() { return statisticsFlushSeconds; }
     public int getLeaderboardSize() { return leaderboardSize; }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
 
     public void reload() {
         loadConfig();

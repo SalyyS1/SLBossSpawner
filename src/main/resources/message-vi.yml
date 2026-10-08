@@ -25,6 +25,7 @@ help-spawn: "  &#FFD93D/slboss spawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFTriệu hồ
 help-despawn: "  &#FFD93D/slboss despawn &#8B8B8B[id] &#8B8B8B- &#FFFFFFXóa boss (bỏ id = tất cả)"
 help-info: "  &#FFD93D/slboss info &#8B8B8B- &#FFFFFFXem trạng thái & lịch boss"
 help-list: "  &#FFD93D/slboss list &#8B8B8B- &#FFFFFFDanh sách boss nhanh"
+help-validate: "  &#FFD93D/slboss validate &#8B8B8B[id] &#8B8B8B- &#FFFFFFKiểm tra cấu hình boss"
 help-help: "  &#FFD93D/slboss help &#8B8B8B- &#FFFFFFHiện menu trợ giúp này"
 help-footer: "  &#8B8B8BTắt: /slbs | Quyền: slboss.*\n&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -34,6 +35,14 @@ info-current: "    &#6BCB77Boss: &#FFFFFF{current_boss}"
 info-next: "    &#4D96FFTiếp theo: &#FFFFFF{next_formatted} &#8B8B8B({next_time})"
 info-expire: "    &#FF6B6BHết hạn: &#FFFFFF{expire_time}"
 info-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+validate-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lKiểm Tra Cấu Hình &#FF6B6B&l━━━━━━"
+validate-ok: "  &#6BCB77✔ {boss_id}: cấu hình hợp lệ."
+validate-error: "  &#FF6B6B✖ {boss_id}: {issue}"
+validate-warning: "  &#FFD93D⚠ {boss_id}: {issue}"
+validate-boss-not-found: "&#FF6B6BKhông tìm thấy cấu hình boss &#FFFFFF{boss_id}&#FF6B6B."
+validate-usage: "&#FFD93DCách dùng: /slboss validate [bossId]"
+validate-footer: "&#FF6B6B&l━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 list-header: "&#FF6B6B&l━━━━━━ &#FFD93D&lDanh Sách Boss &#FF6B6B&l━━━━━━"
 list-entry: "  &#FFD93D● {boss_id} &#8B8B8B- &#FFFFFF{mythicmob} {status}"

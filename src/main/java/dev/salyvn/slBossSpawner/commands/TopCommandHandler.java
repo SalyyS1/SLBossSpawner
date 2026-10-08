@@ -2,11 +2,11 @@ package dev.salyvn.slBossSpawner.commands;
 
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.config.MessageManager;
-import dev.salyvn.slBossSpawner.database.DatabaseManager;
-import dev.salyvn.slBossSpawner.database.LeaderboardRow;
 import dev.salyvn.slBossSpawner.statistics.LeaderboardCache;
+import dev.salyvn.slBossSpawner.statistics.LeaderboardRow;
 import dev.salyvn.slBossSpawner.statistics.PeriodType;
 import dev.salyvn.slBossSpawner.statistics.SeasonResolver;
+import dev.salyvn.slBossSpawner.statistics.StatisticsStore;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Handles /slboss top <metric> [period] [boss] — shows leaderboard from DB.
+ * Handles /slboss top <metric> [period] [boss] — shows a YAML-backed leaderboard.
  */
 public class TopCommandHandler {
     private final SLBossSpawner plugin;
@@ -39,8 +39,8 @@ public class TopCommandHandler {
     }
 
     public void handle(CommandSender sender, String[] args) {
-        DatabaseManager db = plugin.getDatabaseManager();
-        if (db == null) {
+        StatisticsStore store = plugin.getStatisticsStore();
+        if (store == null) {
             sender.sendMessage(messageManager.getMessage("stats-disabled"));
             return;
         }
@@ -52,8 +52,8 @@ public class TopCommandHandler {
         }
 
         String metricArg = args[1].toLowerCase();
-        String dbColumn = LeaderboardCache.metricToColumn(metricArg);
-        if (dbColumn == null) {
+        String metric = LeaderboardCache.metricToColumn(metricArg);
+        if (metric == null) {
             sender.sendMessage(messageManager.getMessage("top-invalid-metric",
                     Map.of("metric", args[1])));
             return;
@@ -87,11 +87,11 @@ public class TopCommandHandler {
         String displayMetric = metricArg;
         PeriodType finalPeriodType = periodType;
 
-        // Async DB query
+        // Leaderboards are sorted from the in-memory YAML store off-thread.
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                List<LeaderboardRow> rows = db.getTopPlayers(
-                        finalPeriodType.name(), periodKey, bossId, dbColumn, 10);
+                List<LeaderboardRow> rows = store.getTopPlayers(
+                        finalPeriodType.name(), periodKey, bossId, metric, 10);
 
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (rows == null || rows.isEmpty()) {
@@ -100,8 +100,8 @@ public class TopCommandHandler {
                     }
                     sendTopDisplay(sender, displayMetric, displayPeriod, rows);
                 });
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to query leaderboard: " + e.getMessage());
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Failed to read leaderboard: " + e.getMessage());
                 Bukkit.getScheduler().runTask(plugin, () ->
                         sender.sendMessage(messageManager.getMessage("top-no-data")));
             }

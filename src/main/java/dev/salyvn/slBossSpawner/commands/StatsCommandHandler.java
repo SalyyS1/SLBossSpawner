@@ -2,8 +2,8 @@ package dev.salyvn.slBossSpawner.commands;
 
 import dev.salyvn.slBossSpawner.SLBossSpawner;
 import dev.salyvn.slBossSpawner.config.MessageManager;
-import dev.salyvn.slBossSpawner.database.DatabaseManager;
-import dev.salyvn.slBossSpawner.database.PlayerStatsRow;
+import dev.salyvn.slBossSpawner.statistics.PlayerStatsRow;
+import dev.salyvn.slBossSpawner.statistics.StatisticsStore;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
@@ -25,8 +25,8 @@ public class StatsCommandHandler {
     }
 
     public void handle(CommandSender sender, String[] args) {
-        DatabaseManager db = plugin.getDatabaseManager();
-        if (db == null) {
+        StatisticsStore store = plugin.getStatisticsStore();
+        if (store == null) {
             sender.sendMessage(messageManager.getMessage("stats-disabled"));
             return;
         }
@@ -54,10 +54,11 @@ public class StatsCommandHandler {
             return;
         }
 
-        // Async DB query
+        // The store is in-memory; keep the read off the command thread so a
+        // large YAML snapshot can never delay a chat response.
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                PlayerStatsRow row = db.getPlayerStats(
+                PlayerStatsRow row = store.getPlayerStats(
                         targetUuid.toString(), "ALL_TIME", "all", "__global__");
 
                 // Send result on main thread
@@ -68,8 +69,8 @@ public class StatsCommandHandler {
                     }
                     sendStatsDisplay(sender, targetName, row);
                 });
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to query player stats: " + e.getMessage());
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Failed to read player stats: " + e.getMessage());
                 Bukkit.getScheduler().runTask(plugin, () ->
                         sender.sendMessage(messageManager.getMessage("stats-no-data")));
             }

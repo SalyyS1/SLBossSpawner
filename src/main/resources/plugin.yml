@@ -10,7 +10,7 @@ depend: [MythicMobs]
 commands:
   slboss:
     description: Main boss spawner command
-    usage: /<command> [help|reload|state|spawn|despawn|info|list|stats|top]
+    usage: /<command> [help|reload|state|spawn|despawn|info|list|validate|stats|top]
     aliases: [slbs]
 
 permissions:
@@ -35,6 +35,9 @@ permissions:
   slboss.list:
     description: View boss list
     default: true
+  slboss.validate:
+    description: Validate boss configuration
+    default: op
   slboss.stats:
     description: View player statistics
     default: true
@@ -52,5 +55,6 @@ permissions:
       slboss.despawn: true
       slboss.info: true
       slboss.list: true
+      slboss.validate: true
       slboss.stats: true
       slboss.top: true
